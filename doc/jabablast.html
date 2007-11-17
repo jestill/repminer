@@ -1,0 +1,351 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>jabablast.pl</title>
+<link rel="stylesheet" href="jperl.css" type="text/css" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body>
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#arguments">ARGUMENTS</a></li>
+	<ul>
+
+		<li><a href="#required_arguments">Required Arguments</a></li>
+		<li><a href="#boolean_arguments">Boolean Arguments</a></li>
+		<li><a href="#matrix_options">Matrix Options</a></li>
+		<li><a href="#database_options">Database Options</a></li>
+		<li><a href="#blast_options">BLAST Options</a></li>
+		<li><a href="#graph_options">Graph Options</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#history">HISTORY</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>jabablast.pl - Jamie's All by All BLAST Analysis Program</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<pre>
+    jabablast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
+                 -b dbName -f Network.sif</pre>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>The jabablast (<em>jamies all-by-all blast</em>) program allows for
+visualizing all by all blast results for use in the identification and
+analysis of the repetitive fraction of genome sequence data.
+The program can create a graphical representation of the matrix 
+of all-by-all BLAST results as well as text files describing the edges 
+and nodes of a graph that can be visualized in the Cytoscape 
+(<a href="http://www.cytoscape.org">http://www.cytoscape.org</a>) graph visualization program. 
+This program is a component of RepMiner.</p>
+<p>An important component of jabablast is the ability to parse BLAST restuls 
+from various repeat databases into a single classification scheme.
+The databases that are used by jabablast are focused on databases
+that are relevant to plants. 
+The repeat databases that jabablast can use include:</p>
+<ul>
+<li><strong><a name="item_trep">TREP (<a href="http://wheat.pw.usda.gov/ITMI/Repeats/">http://wheat.pw.usda.gov/ITMI/Repeats/</a>)</a></strong><br />
+</li>
+<li><strong><a name="item_repbase">RepBase (<a href="http://www.girinst.org/repbase/update/index.html">http://www.girinst.org/repbase/update/index.html</a>)</a></strong><br />
+</li>
+<li><strong><a name="item_sanmiguel">SanMiguel (<a href="http://www.genomics.purdue.edu/~pmiguel/projects/retros/">http://www.genomics.purdue.edu/~pmiguel/projects/retros/</a>)</a></strong><br />
+</li>
+<li><strong><a name="item_tigr">TIGR (<a href="http://www.tigr.org/tdb/e2k1/plant.repeats/">http://www.tigr.org/tdb/e2k1/plant.repeats/</a>)</a></strong><br />
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="arguments">ARGUMENTS</a></h1>
+<p>Not all of the following arguments are currently implemented.</p>
+<p>
+</p>
+<h2><a name="required_arguments">Required Arguments</a></h2>
+<dl>
+<dt><strong><a name="item_%2di_allbyallblast%2eblo">-i AllByAllBlast.blo</a></strong><br />
+</dt>
+<dd>
+Path to the AllByAllBlast File to parse.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dr_repblast%2eblo">-r RepBlast.blo</a></strong><br />
+</dt>
+<dd>
+The BLAST results against known repeats.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2do_outdir">-o OutDir</a></strong><br />
+</dt>
+<dd>
+The path of the output directory.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2du_username">-u UserName</a></strong><br />
+</dt>
+<dd>
+The user name for connection to the database.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dd_dbname">-d dbName</a></strong><br />
+</dt>
+<dd>
+The database name to use for the database connection.
+This database MUST already exist in you MySQL database.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2df_network%2esif">-f Network.sif</a></strong><br />
+</dt>
+<dd>
+The name of the output network text file.[string]
+default = Network.sif
+</dd>
+<p></p></dl>
+<p>
+</p>
+<h2><a name="boolean_arguments">Boolean Arguments</a></h2>
+<dl>
+<dt><strong><a name="item_%2dq">-Q</a></strong><br />
+</dt>
+<dd>
+Run program in quiet mode. [boolean flag]
+default = Not quiet.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2db">-B</a></strong><br />
+</dt>
+<dd>
+Use the database for classification information [boolean flag]
+Many of the following options require a database
+Without a database, only an all by all BLAST can be 
+visualized without classification into repeat categories
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dc">-C</a></strong><br />
+</dt>
+<dd>
+Open Cytoscape to view the output [boolean flag]
+default = Cytoscape not opened.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dg">-G</a></strong><br />
+</dt>
+<dd>
+Produce graph with graphviz format. This will probably
+get moved to a separate program. There are a number 
+of variables that can be set with GraphViz that would be
+useful to set at the command lined. [Added 05/16/2007]
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dm">-M</a></strong><br />
+</dt>
+<dd>
+Create visualization of all by all BLAST matrix.
+default = Matrix not created.
+This is useful for visualiztion of small sets of ordered seqs.
+</dd>
+<p></p></dl>
+<p>
+</p>
+<h2><a name="matrix_options">Matrix Options</a></h2>
+<p>The matrix creation portion of jabablast may be dropped
+in the future to simplify the command line options.</p>
+<dl>
+<dt><strong><a name="item_%2dx_2">-x 2</a></strong><br />
+</dt>
+<dd>
+Matrix X axis scaling factor [positive integer]
+default = 2
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dy_2">-y 2</a></strong><br />
+</dt>
+<dd>
+Matrix Y axis scaling factor [positive integer].
+default = 2
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dp_3">-p 3</a></strong><br />
+</dt>
+<dd>
+Matrix Pixel size [positive integer].
+default =3
+</dd>
+<p></p></dl>
+<p>
+</p>
+<h2><a name="database_options">Database Options</a></h2>
+<dl>
+<dt><strong><a name="item_%2da_tblallbyall">-a tblAllByAll</a></strong><br />
+</dt>
+<dd>
+The table name to use for the all by all blast
+in the databse[string]
+default = tblAllByAll
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dc_tblrepeatid">-c tblRepeatID</a></strong><br />
+</dt>
+<dd>
+The table name to use for the known repeat classification
+table in the database [string]
+default = tblRepeatID
+</dd>
+<p></p></dl>
+<p>
+</p>
+<h2><a name="blast_options">BLAST Options</a></h2>
+<dl>
+<dt><strong><a name="item_%2dm_8">-m 8</a></strong><br />
+</dt>
+<dd>
+blast output aligment view. [Integer 0,8, or 9]
+This matches the -m flag from NCBI blastall
+default = -m 8
+</dd>
+<dd>
+<p>-m 0 = pairwise</p>
+</dd>
+<dd>
+<p>-m 8 = tabular (default)</p>
+</dd>
+<dd>
+<p>-m 9 = tabular with comment lines</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_%2de_1%2e0e%2d05">-e 1.0e-05</a></strong><br />
+</dt>
+<dd>
+Max e value for All by All BLAST results.
+default = 1.0e-05
+</dd>
+<p></p>
+<dt><strong><a name="item_%2ds_50">-s 50</a></strong><br />
+</dt>
+<dd>
+Minimum bit score for All by All BLAST results.[Integer]
+default = 50
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dl_150">-l 150</a></strong><br />
+</dt>
+<dd>
+Mimimum length of the query sequence in All by All BLAST
+default = 150
+</dd>
+<p></p>
+<dt><strong><a name="item_%2de_1%2e0e%2d03">-E 1.0e-03</a></strong><br />
+</dt>
+<dd>
+Max e-value for BLAST against repeat database.
+default = 1.0e-03
+</dd>
+<p></p>
+<dt><strong><a name="item_%2ds_50">-S 50</a></strong><br />
+</dt>
+<dd>
+Minimum bit score for BLAST against repeat database.
+    default = 50
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dl_50">-L 50</a></strong><br />
+</dt>
+<dd>
+Minimum length of the query sequence against the repeat database.
+default = 50
+</dd>
+<p></p></dl>
+<p>
+</p>
+<h2><a name="graph_options">Graph Options</a></h2>
+<dl>
+<dt><strong><a name="item_%2dd">-d</a></strong><br />
+</dt>
+<dd>
+Graph edge direction. This is currently only supported for tab delim blast:
+</dd>
+<dd>
+<p>-d 0 = undirected (i &lt; j)</p>
+</dd>
+<dd>
+<p>-d 1 = undirected (i != j)</p>
+</dd>
+<dd>
+<p>-d 2 = undirected (all i,j)
+       Reciprocal hits reduced to a single edge.</p>
+</dd>
+<dd>
+<p>-d 3 = directed (i &lt; j)</p>
+</dd>
+<dd>
+<p>-d 4 = directed (i != j)</p>
+</dd>
+<dd>
+<p>-d 5 = directed (all i,j)
+       Reciprocal hits drawn as two edges.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dn_graph_node_attributes">-n Graph node attributes</a></strong><br />
+</dt>
+<dd>
+The graph node attributes to use for node classification.
+Not currently implemented.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dg_graph_algorithm">-g Graph algorithm</a></strong><br />
+</dt>
+<dd>
+Not currently implemented.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dk_k_best_blast_hits_used">-k K best blast hits used</a></strong><br />
+</dt>
+<dd>
+Not currently implemented.
+</dd>
+<p></p>
+<dt><strong><a name="item_%2dw_0">-w 0</a></strong><br />
+</dt>
+<dd>
+Graph edge weight option:
+</dd>
+<dd>
+<p>-w 0 unweighted</p>
+</dd>
+<p></p></dl>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>James C. Estill &lt;JamesEstill at gmail.com&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="history">HISTORY</a></h1>
+<p>STARTED: 06/14/2006
+
+</p>
+<p>UPDATED: 05/22/2007
+
+</p>
+
+</body>
+
+</html>
