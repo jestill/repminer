@@ -32,254 +32,6 @@
 #     http://www.chaosreigns.com/code/springgraph/
 #
 
-=head1 NAME
-
-jabablast.pl - Jamie's All by All BLAST Analysis Program
-
-=head1 SYNOPSIS
-
-    jabablast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
-                 -b dbName -f Network.sif
-
-=head1 DESCRIPTION
-
-The jabablast (I<jamies all-by-all blast>) program allows for
-visualizing all by all blast results for use in the identification and
-analysis of the repetitive fraction of genome sequence data.
-The program can create a graphical representation of the matrix 
-of all-by-all BLAST results as well as text files describing the edges 
-and nodes of a graph that can be visualized in the Cytoscape 
-(L<http://www.cytoscape.org>) graph visualization program. 
-This program is a component of RepMiner.
-
-An important component of jabablast is the ability to parse BLAST restuls 
-from various repeat databases into a single classification scheme.
-The databases that are used by jabablast are focused on databases
-that are relevant to plants. 
-The repeat databases that jabablast can use include:
-
-=over 2
-
-=item * TREP (L<http://wheat.pw.usda.gov/ITMI/Repeats/>)
-
-=item * RepBase (L<http://www.girinst.org/repbase/update/index.html>)
-
-=item * SanMiguel (L<http://www.genomics.purdue.edu/~pmiguel/projects/retros/>)
-
-=item * TIGR (L<http://www.tigr.org/tdb/e2k1/plant.repeats/>) 
-
-=back
-
-=head1 ARGUMENTS
-
-Not all of the following arguments are currently implemented. 
-
-=head2 Required Arguments
-
-=over 2
-
-=item -i AllByAllBlast.blo
-
-Path to the AllByAllBlast File to parse.
-
-=item -r RepBlast.blo
-
-The BLAST results against known repeats.
-
-=item -o OutDir
-
-The path of the output directory.
-
-=item -u UserName
-
-The user name for connection to the database.
-
-=item -d dbName
-
-The database name to use for the database connection.
-This database MUST already exist in you MySQL database.
-
-=item -f Network.sif
-
-The name of the output network text file.[string]
-default = Network.sif
-
-=back
-
-=head2 Boolean Arguments
-
-=over2
-
-=item -Q
-
-Run program in quiet mode. [boolean flag]
-default = Not quiet.
-
-=item -B
-
-Use the database for classification information [boolean flag]
-Many of the following options require a database
-Without a database, only an all by all BLAST can be 
-visualized without classification into repeat categories
-
-=item -C
-
-Open Cytoscape to view the output [boolean flag]
-default = Cytoscape not opened.
-
-=item -G
-
-Produce graph with graphviz format. This will probably
-get moved to a separate program. There are a number 
-of variables that can be set with GraphViz that would be
-useful to set at the command lined. [Added 05/16/2007]
-
-=item -M 
-
-Create visualization of all by all BLAST matrix.
-default = Matrix not created.
-This is useful for visualiztion of small sets of ordered seqs.
-
-=back
-
-=head2 Matrix Options
-
-The matrix creation portion of jabablast may be dropped
-in the future to simplify the command line options.
-
-=over 2
-
-=item -x 2
-
-Matrix X axis scaling factor [positive integer]
-default = 2
-
-=item -y 2
-
-Matrix Y axis scaling factor [positive integer].
-default = 2
-
-=item -p 3
-
-Matrix Pixel size [positive integer].
-default =3
-
-=back
-
-=head2 Database Options
-
-=over 2
-
-=item -a tblAllByAll
-
-The table name to use for the all by all blast
-in the databse[string]
-default = tblAllByAll
-
-=item -c tblRepeatID
-
-The table name to use for the known repeat classification
-table in the database [string]
-default = tblRepeatID
-
-=back
-
-=head2 BLAST Options
-
-=over 2
-
-=item -m 8
-
-blast output aligment view. [Integer 0,8, or 9]
-This matches the -m flag from NCBI blastall
-default = -m 8
-
--m 0 = pairwise
-
--m 8 = tabular (default)
-
--m 9 = tabular with comment lines
-
-=item -e 1.0e-05
-
-Max e value for All by All BLAST results.
-default = 1.0e-05
-
-=item -s 50
-
-Minimum bit score for All by All BLAST results.[Integer]
-default = 50
-
-=item -l 150
-
-Mimimum length of the query sequence in All by All BLAST
-default = 150
-
-=item -E 1.0e-03 
-
-Max e-value for BLAST against repeat database.
-default = 1.0e-03 
-
-=item -S 50
-
-Minimum bit score for BLAST against repeat database.
-    default = 50
-
-=item -L 50
-
-Minimum length of the query sequence against the repeat database.
-default = 50
-
-=back
-
-=head2 Graph Options
-
-=over
-
-=item -d 
-
-Graph edge direction. This is currently only supported for tab delim blast:
-
--d 0 = undirected (i < j)
-
--d 1 = undirected (i != j)
-
--d 2 = undirected (all i,j)
-       Reciprocal hits reduced to a single edge.
-
--d 3 = directed (i < j)
-
--d 4 = directed (i != j)
-
--d 5 = directed (all i,j)
-       Reciprocal hits drawn as two edges.
-
-=item -n Graph node attributes
-
-The graph node attributes to use for node classification.
-Not currently implemented.
-
-=item -g Graph algorithm
-
-Not currently implemented.
-
-=item -k K best blast hits used
-
-Not currently implemented.
-
-=item -w 0
-
-Graph edge weight option:
-
--w 0 unweighted 
-
-=back
-
-=head1 AUTHOR
-
-James C. Estill E<lt>JamesEstill at gmail.comE<gt>
-
-=cut
 
 # Set the package name to RepMiner
 
@@ -3598,6 +3350,253 @@ print $FullUsage;
 
 }
 
+=head1 NAME
+
+jabablast.pl - Jamie's All by All BLAST Analysis Program
+
+=head1 SYNOPSIS
+
+    jabablast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
+                 -b dbName -f Network.sif
+
+=head1 DESCRIPTION
+
+The jabablast (I<jamies all-by-all blast>) program allows for
+visualizing all by all blast results for use in the identification and
+analysis of the repetitive fraction of genome sequence data.
+The program can create a graphical representation of the matrix 
+of all-by-all BLAST results as well as text files describing the edges 
+and nodes of a graph that can be visualized in the Cytoscape 
+(L<http://www.cytoscape.org>) graph visualization program. 
+This program is a component of RepMiner.
+
+An important component of jabablast is the ability to parse BLAST restuls 
+from various repeat databases into a single classification scheme.
+The databases that are used by jabablast are focused on databases
+that are relevant to plants. 
+The repeat databases that jabablast can use include:
+
+=over 2
+
+=item * TREP (L<http://wheat.pw.usda.gov/ITMI/Repeats/>)
+
+=item * RepBase (L<http://www.girinst.org/repbase/update/index.html>)
+
+=item * SanMiguel (L<http://www.genomics.purdue.edu/~pmiguel/projects/retros/>)
+
+=item * TIGR (L<http://www.tigr.org/tdb/e2k1/plant.repeats/>) 
+
+=back
+
+=head1 ARGUMENTS
+
+Not all of the following arguments are currently implemented. 
+
+=head2 Required Arguments
+
+=over 2
+
+=item -i AllByAllBlast.blo
+
+Path to the AllByAllBlast File to parse.
+
+=item -r RepBlast.blo
+
+The BLAST results against known repeats.
+
+=item -o OutDir
+
+The path of the output directory.
+
+=item -u UserName
+
+The user name for connection to the database.
+
+=item -d dbName
+
+The database name to use for the database connection.
+This database MUST already exist in you MySQL database.
+
+=item -f Network.sif
+
+The name of the output network text file.[string]
+default = Network.sif
+
+=back
+
+=head2 Boolean Arguments
+
+=over2
+
+=item -Q
+
+Run program in quiet mode. [boolean flag]
+default = Not quiet.
+
+=item -B
+
+Use the database for classification information [boolean flag]
+Many of the following options require a database
+Without a database, only an all by all BLAST can be 
+visualized without classification into repeat categories
+
+=item -C
+
+Open Cytoscape to view the output [boolean flag]
+default = Cytoscape not opened.
+
+=item -G
+
+Produce graph with graphviz format. This will probably
+get moved to a separate program. There are a number 
+of variables that can be set with GraphViz that would be
+useful to set at the command lined. [Added 05/16/2007]
+
+=item -M 
+
+Create visualization of all by all BLAST matrix.
+default = Matrix not created.
+This is useful for visualiztion of small sets of ordered seqs.
+
+=back
+
+=head2 Matrix Options
+
+The matrix creation portion of jabablast may be dropped
+in the future to simplify the command line options.
+
+=over 2
+
+=item -x 2
+
+Matrix X axis scaling factor [positive integer]
+default = 2
+
+=item -y 2
+
+Matrix Y axis scaling factor [positive integer].
+default = 2
+
+=item -p 3
+
+Matrix Pixel size [positive integer].
+default =3
+
+=back
+
+=head2 Database Options
+
+=over 2
+
+=item -a tblAllByAll
+
+The table name to use for the all by all blast
+in the databse[string]
+default = tblAllByAll
+
+=item -c tblRepeatID
+
+The table name to use for the known repeat classification
+table in the database [string]
+default = tblRepeatID
+
+=back
+
+=head2 BLAST Options
+
+=over 2
+
+=item -m 8
+
+blast output aligment view. [Integer 0,8, or 9]
+This matches the -m flag from NCBI blastall
+default = -m 8
+
+-m 0 = pairwise
+
+-m 8 = tabular (default)
+
+-m 9 = tabular with comment lines
+
+=item -e 1.0e-05
+
+Max e value for All by All BLAST results.
+default = 1.0e-05
+
+=item -s 50
+
+Minimum bit score for All by All BLAST results.[Integer]
+default = 50
+
+=item -l 150
+
+Mimimum length of the query sequence in All by All BLAST
+default = 150
+
+=item -E 1.0e-03 
+
+Max e-value for BLAST against repeat database.
+default = 1.0e-03 
+
+=item -S 50
+
+Minimum bit score for BLAST against repeat database.
+    default = 50
+
+=item -L 50
+
+Minimum length of the query sequence against the repeat database.
+default = 50
+
+=back
+
+=head2 Graph Options
+
+=over
+
+=item -d 
+
+Graph edge direction. This is currently only supported for tab delim blast:
+
+-d 0 = undirected (i < j)
+
+-d 1 = undirected (i != j)
+
+-d 2 = undirected (all i,j)
+       Reciprocal hits reduced to a single edge.
+
+-d 3 = directed (i < j)
+
+-d 4 = directed (i != j)
+
+-d 5 = directed (all i,j)
+       Reciprocal hits drawn as two edges.
+
+=item -n Graph node attributes
+
+The graph node attributes to use for node classification.
+Not currently implemented.
+
+=item -g Graph algorithm
+
+Not currently implemented.
+
+=item -k K best blast hits used
+
+Not currently implemented.
+
+=item -w 0
+
+Graph edge weight option:
+
+-w 0 unweighted 
+
+=back
+
+=head1 AUTHOR
+
+James C. Estill E<lt>JamesEstill at gmail.comE<gt>
+
 =head1 HISTORY
 
 STARTED: 06/14/2006
@@ -3834,6 +3833,10 @@ UPDATED: 06/27/2007
 # - Slight modification to the FASTA output to make sure
 #   that it will include the numerical ID that was assigned
 #   by Jamie.
+#
+# 11/19/2007
+# - Moved POD doucumentation to the end of the program
+# 
 #-----------------------------------------------------------+
 # TODO                                                      |
 #-----------------------------------------------------------+
@@ -3864,3 +3867,4 @@ UPDATED: 06/27/2007
 #    + Make new FASTA file with class info
 #    + Parse EMBL to a Hash for searching by name
 # How to work with SanMiguel and Wessler/MAGI data.
+
