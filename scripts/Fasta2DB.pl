@@ -24,8 +24,6 @@
 #-----------------------------------------------------------+
 
 print "The program has started\n";
-=head1 PROGRAM VARIABLES
-=cut
 
 #-----------------------------+
 # INCLUDES                    |
@@ -52,8 +50,6 @@ my $NewId;
 my $DbUserPassword;            # Sets scope for the password
 #my $SeqTbl = "tblSeqData";     # Name of the data to hold the seq data
 
-=head1 CMD LINE OPTIONS
-=cut
 #-----------------------------+
 # GET OPTIONS FROM THE        |
 # COMMAND LINE                |
@@ -93,9 +89,6 @@ unless ($DbUserPassword)
     chomp $DbUserPassword;
 }
 
-=head1 FILE I/O
-Open files for input
-=cut
 #-----------------------------+
 # FILE/DB IO                  |
 #-----------------------------+
@@ -112,10 +105,6 @@ my $dbh = DBI->connect("DBI:mysql:database=$DbName;host=localhost",
 # Create the database table to hold the information
 &CreateDBTable ( $SeqTbl );
 #exit;
-
-=head1 MAIN BODY OF PROGRAM
-The main work that the program does is here.
-=cut
 
 #-----------------------------+
 # PROCESS SEQUENCE FILE       |
@@ -215,3 +204,7 @@ sub does_table_exist
 # 04/05/2007
 # - Added the ability to specify the password at the command
 #   line using the -p flag
+#
+# 11/19/2007 
+# - Cleaned out old head1 and changed name from
+#   Fasta2DB.pl to fasta2db.pl
