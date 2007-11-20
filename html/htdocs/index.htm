@@ -1,0 +1,129 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>RepMiner</title>
+<LINK REL="SHORTCUT ICON" HREF="../jestill/JE5.ico">
+</head>
+
+<body>
+
+<table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber1">
+  <tr>
+    <td width="50%">
+    <img border="1" src="images/RepMiner.png" width="326" height="115"></td>
+    <td width="50%">
+    <ul>
+      <li><a href="#Description">Description</a></li>
+      <li><a href="#Features">Features</a></li>
+      <li><a href="#Screenshots">Screenshots</a></li>
+      <li>Author: <a href="http://jestill.myweb.uga.edu">James C. Estill</a></li>
+    </ul>
+    </td>
+  </tr>
+</table>
+<hr>
+<h2><a name="Description"></a>Description</h2>
+<p>The RepMiner package takes a 
+<a target="_blank" href="http://en.wikipedia.org/wiki/Graph_theory">graph theory</a> approach to 
+the classification and assembly of the repetitive fraction of genomic sequence 
+data. Sequences analyzed by RepMiner can range from full length transposable 
+elements in well characterized genomes to short length sequence reads resulting 
+from low 
+coverage sample sequence data. RepMiner makes use of transposable elements identified from model species to map 
+the location of putative transposable elements onto homology based networks 
+derived from comparing the sequences of the query genome to itself. Individual 
+clusters representing Pseudo Assembly Networks (PANs) may be selected and 
+assembled using the TGICL/CAP3 program. </p>
+<p>This package is currently under heavy development.</p>
+<h2><a name="Features"></a>Features</h2>
+<p>Fully implemented features:</p>
+<ul>
+  <li>Automated All-by-All BLAST given a FASTA file for the query sequences of 
+  interest</li>
+  <li>Automated BLAST against a set of databases of transposable elements (TEs) 
+  from model species</li>
+  <li>Parsing of TE BLAST results into a classified set of transposable elements</li>
+  <li>Production of networks of similarity based on
+  <a target="_blank" href="http://130.14.29.110/BLAST/">BLAST</a> results that 
+  are suitable for visualization in the program
+  <a target="_blank" href="http://www.cytoscape.org/">Cytoscape</a></li>
+  <li>Automated assembly of manually selected Pseudo Assembly Networks using
+  <a target="_blank" href="http://www.tigr.org/tdb/tgi/software/">TGICL/CAP3</a></li>
+  <li>Automated comparison of transposable element assembly against a database 
+  of profile hidden Markov Models using
+  <a target="_blank" href="http://hmmer.janelia.org/">HMMER</a></li>
+  <li>Parsing of all HMMER results into an easy to read tab delimited text file</li>
+  <li>Creation of an
+  <a target="_blank" href="http://www.fruitfly.org/annot/apollo/">Apollo</a> 
+  file for all assemblies resulting from TGICL/CAP3</li>
+  <li>Production of an HTML page summarizing all analyses for each of the PANS 
+  submitted to the program</li>
+</ul>
+<p>Future directions:</p>
+<ul>
+  <li>The derivation of a cluster based classification of elements</li>
+  <li>Automated detection of putative transposable element clusters in the set 
+  of graphs derived from the All by All
+  <a target="_blank" href="http://130.14.29.110/BLAST/">BLAST</a></li>
+  <li>Precise delineation of transposable elements within the putative 
+  transposable element assembly</li>
+  <li>Creation of a database of the results that are available for browsing with
+  <a target="_blank" href="http://www.fruitfly.org/annot/apollo/">Apollo</a></li>
+</ul>
+<h2><a name="Screenshots"></a>Screenshots</h2>
+<h3>Example Set of Pseudo Assembly Networks (PANs)</h3>
+<p>The 'constellations' below represents networks of homology within query 
+genome. Each individual node in the network below represents a short sequence 
+read. The color of each individual node represents the source BAC. The shape of 
+the node represents any homology to known transposable elements. The color of 
+the perimeter of the node represents any homology to known transposable element 
+proteins. The color of the lines connecting any two nodes indicates the degree 
+of homology between the two sequences.</p>
+<p><img border="3" src="images/Network01.jpg" width="740" height="554"></p>
+<h2>HTML Output Header</h2>
+<p>Each PAN is assembled with TGICL and BLASTEd against databases of known 
+transposable elements. The variables used for the assembly and BLAST based 
+homology comparison is indicated in the header of the HTML output.</p>
+<p>
+<img border="0" src="images/HTMLOutHead.jpg" width="693" height="560"></p>
+<p>&nbsp;</p>
+<h2>HTML Output Record</h2>
+<p>For each of the PANs, the assembled molecules are BLASTed against a set of 
+known transposable elements and compared to a database of hidden Markov models 
+profiles for MITEs. The best BLAST hit is shown for any of the TE databases that 
+had a significant hit. The entire BLAST report is available by clicking on the 
+database name under each contig name. The parsed hidden Markov model output can 
+be accessed by clicking on the hmm_mite link under each contig name. The PAN 
+shown below contains a Stowaway mite.</p>
+<p><img border="0" src="images/HTMLOut01.jpg" width="746" height="416"></p>
+<hr>
+<table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber2">
+  <tr>
+    <td width="50%"><i>Author: <a href="index.htm">James Estill</a><br>
+Last Updated:
+<!--webbot bot="Timestamp" S-Type="EDITED" S-Format="%A, %d %B %Y" startspan -->Thursday, 19 April 2007<!--webbot bot="Timestamp" i-checksum="60193" endspan --></i></td>
+    <td width="50%">
+    </td>
+	<td width="50%">
+
+
+    <p> <a href="http://sourceforge.net">
+        <img src="http://sflogo.sourceforge.net/sflogo.php?group_id=192812&amp;type=5" 
+        alt="SourceForge.net Logo" 
+        height="62" 
+        width="210"
+        border="0">
+        </a>
+    </p>
+
+	</td width="50%">
+  </tr>
+</table>
+
+</body>
+
+</html>
