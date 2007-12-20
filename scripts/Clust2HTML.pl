@@ -38,9 +38,6 @@
 #                                                           |
 #-----------------------------------------------------------+
 
-=head1 INCLUDED CONTENT
-PERL Modules required by the program
-=cut
 #-----------------------------+ 
 # INCLUDES                    |
 #-----------------------------+
@@ -59,9 +56,6 @@ use Bio::Tools::HMMER::Results;# To work with the HMMER output
 #-----------------------------+
 my $StartTime = time;
 
-=head1 VARIABLES
-The program variables
-=cut
 #-----------------------------------------------------------+
 # ASSEMBLY RELATED OPTIONS                                  |
 #-----------------------------------------------------------+
@@ -140,10 +134,6 @@ my $AsmLen;                    # Length of the assembly
 my $NumAsmSeqs;                # Number of seqs in the assembly
 my $NumAsm;                    # Number of assemblies in a PAN
 
-=head1 COMMAND LINE
-Get variables from the command line.
-=cut
-
 #-----------------------------+
 # GET VARS FROM COMMAND LINE  |
 #-----------------------------+
@@ -170,10 +160,6 @@ unless ($BlProg =~ "tblastx" || $BlProg =~ "blastn")
     exit;
 }
 
-=head1 DATABASE CONNECT
-Connect to the datbase. This is needed
-to get the BAC id for the ASGR seqs.
-=cut
 #-----------------------------------------------------------+
 # DATABASE CONNECTIONS                                      |
 #-----------------------------------------------------------+
@@ -210,9 +196,6 @@ my $RepDB = DBI->connect("DBI:mysql:database=$RepDbName;host=localhost",
 			   $DbUserName, $DbUserPassword,
 			   {'RaiseError' => 1});
 
-=head1 OPEN FILES
-Open files for Input/Output
-=cut
 #-----------------------------------------------------------+
 # OPEN FILES FOR I/O                                        |
 #-----------------------------------------------------------+
@@ -330,6 +313,13 @@ print "TEMPT OUT\n";
 exit;
 
 
+
+#-----------------------------------------------------------+
+# HISTORY                                                   |
+#-----------------------------------------------------------+
+# 
+# 12/20/2007
+# - Cleaned up code 
 
 
 
