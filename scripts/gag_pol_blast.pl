@@ -16,12 +16,12 @@
 # USAGE:                                                    |
 #                                                           |
 #-----------------------------------------------------------+
-
+#
+# TODO: Switch to a config file
+#
 # Can run this with a test flag to just run through
 # the set to make sure that all of the databases and input
 # files exist.
-
-print "The program has started\n";
 
 #-----------------------------+
 # INCLUDES                    |
