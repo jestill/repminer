@@ -39,8 +39,6 @@ my @SeqStrings;                # Sequence Strings
 my @SeqIds;                    # Sequence IDS
 my $TotComp;                   # The total number of pairwise comparisions
 
-=head1 CMD LINE OPTIONS
-=cut
 #-----------------------------+
 # GET OPTIONS FROM THE        |
 # COMMAND LINE                |
@@ -56,9 +54,6 @@ my $OutFile = $Options{o} ||
     die "You must provide an output file path\n$Usage\n";
 my $Thresh = $Options{t} || 0.75;
 
-=head1 FILE I/O
-Open files for input
-=cut
 #-----------------------------+
 # FILE/DB IO                  |
 #-----------------------------+
@@ -70,9 +65,6 @@ my $inseq = Bio::SeqIO->new(-file   => "<$SeqFile",
 open (SIFOUT, ">$OutFile") ||
     die "Can not open output file:\n$OutFile\n";
 
-=head1 MAIN BODY
-Main body of the program.
-=cut
 #-----------------------------+
 # LOAD ALL SEQUENCE STRINGS   |
 # TO AN ARRAY SEQ ID IN SECOND|
@@ -204,3 +196,6 @@ exit;
 #-----------------------------------------------------------+
 # 03/04/2007
 # - Program started
+#
+# 12/20/2007
+# - Slight code cleanup
