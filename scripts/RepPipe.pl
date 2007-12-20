@@ -35,8 +35,6 @@
 
 print "The RepPipe program has started.\n\n";
 
-=head1 Includes
-=cut
 #-----------------------------+
 # INCLUDES                    |
 #-----------------------------+
@@ -44,9 +42,6 @@ use Cwd;                       # Get the current working directory
 use strict;                    # Lets see what this does
 use DBI();                     # Database interface
 use Getopt::Std;               # Get options from the command line
-
-=head1 Variable Scope
-=cut
 
 #-----------------------------+
 # HARD CODED VARIABLES        |
@@ -105,8 +100,6 @@ my $OutPath;                   # Path used for each of the repeat databases
 # DATABASE COMMANDS           |
 #-----------------------------+
 
-=head1 Get Command Line Options
-=cut
 my $Usage = "USAGE:\n".
     "RepPipe.pl -i FileToAnalyze.fasta -r RepElementDb\n". 
     "-o OutputDir -u UserName -d DatabaseName-Q\n\n".
@@ -156,8 +149,6 @@ $RepDbCmd = $Options{r};
 
 my $Help = $Options{h};
 
-=head1 Main program body
-=cut
 
 #-----------------------------+
 # GET THE PASSWORD IF NOT     |
@@ -526,8 +517,6 @@ sub PrintHelp
 
 }
 
-=head1 HISTORY
-=cut
 #-----------------------------------------------------------+
 # HISTORY                                                   |
 #-----------------------------------------------------------+
