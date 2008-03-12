@@ -24,8 +24,6 @@
 #-----------------------------------------------------------+
 
 print "The program has started\n";
-=head1 PROGRAM VARIABLES
-=cut
 
 #-----------------------------+
 # INCLUDES                    |
@@ -52,8 +50,6 @@ my $NewId;
 my $DbUserPassword;            # Sets scope for the password
 #my $SeqTbl = "tblSeqData";     # Name of the data to hold the seq data
 
-=head1 CMD LINE OPTIONS
-=cut
 #-----------------------------+
 # GET OPTIONS FROM THE        |
 # COMMAND LINE                |
