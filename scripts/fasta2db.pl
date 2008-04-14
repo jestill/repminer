@@ -62,8 +62,8 @@ getopts('i:d:u:o:p:t:q', \%Options);
 my $Usage = "Fasta2DB -i InputFilePath -d dbName -u dbUserName [q]";
 my $SeqFile = $Options{i} || 
     die "You must provide an input file path\n$Usage\n";
-#my $AllOutPath = $Options{o} || 
-#    die "You must provide an output path\n$AllOutPath\n";
+my $AllOutPath = $Options{o} || 
+    die "You must provide an output path\n$AllOutPath\n";
 my $DbName  = $Options{d} || 
     die "You must the database name\n$Usage\n";
 my $DbUserName = $Options{u} || 

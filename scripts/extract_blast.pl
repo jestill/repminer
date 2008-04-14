@@ -163,8 +163,9 @@ elsif ( $blast_opt =~ "2" ) {
     my $blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
                                            '-file'   => $infile)
         || die "Could not open BLAST input file:\n$infile.\n";
-    
-    if ($blast_report) { print "Blast report is valid\n"; }
+
+# The following for error reporting    
+#    if ($blast_report) { print "Blast report is valid\n"; }
     
     while (my $blast_result = $blast_report->next_result()) {
 	

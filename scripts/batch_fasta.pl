@@ -33,7 +33,6 @@ package REPMINER;
 use strict;
 use Getopt::Long;
 use Bio::SeqIO;
-use IPC::Open2;                # For interaction with prss34
 
 #-----------------------------+
 # PROGRAM VARIABLES           |
@@ -51,6 +50,9 @@ my $seq1_id;
 my $seq2_path;
 my $seq2_id;
 my $program = "fasta34";
+
+# Array to hold all Z scores for query sequence
+my @z_scores;
 
 # Index vals
 my $i=0;
@@ -118,9 +120,6 @@ if ( (!$indir) || (!$outdir) ) {
         " command line\n" if (!$indir);
     print STDERR "ERROR: An output directory was specified at the".
         " command line\n" if (!$outdir);
-#    print STDERR "ERROR: A configuration file was not specified at the".
-#        " command line\n" if (!$file_config);
-#    print_help ("usage", $0 );
     exit 1;
 }
 
@@ -172,16 +171,21 @@ if ($count_files == 0) {
 #-----------------------------+
 # OUTPUT FILE HANDLES         |
 #-----------------------------+
+# The following files are for clustering
 # VECOUT is the vector of nodes
-# SIMOUT is the vector of similarity scores
-open (VECOUT, ">".$outdir."vec.txt") ||
-    die "Can not open vector output file\n";
+# SIMOUT is the matrix of similarity scores
+# IDOUT
+# PREOUT is the preferences file. This may need to
+# be created using a database approach
 
 open (SIMOUT, ">".$outdir."similarity.txt") ||
     die "Can not open similarity output file\n";
 
 open (IDOUT, ">".$outdir."vecname.txt") ||
     die "Can not open the vector output name file\n";
+
+open (PREFOUT, ">".$outdir."preferneces.txt") ||
+    die "Can not open the preferences file\n";
 
 #-----------------------------+
 # MAIN PROGRAM BODY           |
@@ -209,13 +213,19 @@ for my $ind_file_1 (@fasta_files) {
 	$seq1_id = $ind_file_1;
     }
     
+    # Print the data to the VECOUT file
+    print IDOUT "$seq1_id\n";
+
     # Short exit for testing
-    if ($i == "2") { exit };
-    
+    #if ($i == "3") { exit };
+
+    #-----------------------------+
+    # FOR EVERY FILE IN DB DIR    |
+    #-----------------------------+
     for my $ind_file_2(@fasta_files) {
 
 	$j++;
-	$seq2_path = $indir.$ind_file_2;
+ 	$seq2_path = $indir.$ind_file_2;
 	
 	if ($ind_file_2 =~ m/(.*)\.masked\.fasta$/) {
 	    $seq2_id = "$1";
@@ -230,21 +240,14 @@ for my $ind_file_1 (@fasta_files) {
 	    $seq2_id = $ind_file_2;
 	}
 	
-#	print "===================================\n" if $verbose;
 	print STDERR "Processing $i:$j\n" if $verbose;
-#	print "===================================\n" if $verbose;
 
-	# test of comd line
-	# -B Do Z score
-	# -H Omit histogram
-	# -q Quiet
-#	my $cmd = "prss34 $seq1_path $seq2_path -B -m 9 -H -Q\n";
-#	my $cmd = "ssearch34 $seq1_path $seq2_path -B -m 9 -H -Q\n";
+	# GENERATE THE COMMAND FOR RUNNING FASTA
 	my $cmd = "$program $seq1_path $seq2_path -B -m 9 -H -Q\n";
 
 	# OPEN FILE HANDLE TO GET THE OUTPUT FROM PRSS
 	open (ALIGN, "$cmd |") ||
-	    die "Can not run prss34\n";
+	    die "Can not run the fasta program requested\n";
 
 	# Parse the output
 	my $in_align = 0;
@@ -274,16 +277,6 @@ for my $ind_file_1 (@fasta_files) {
 		my $z_score = $vals_1[$num_vals_1 - 2];
 		my $e_val = $vals_1[$num_vals_1 - 1];
 
-#		print "\tZ Score:\t$z_score\n";
-#		print "\tE Value:\t$e_val\n";
-
-
-#		# Test print of the split output
-#		print "\nVAL COLS ONE: $num_vals_1\n";
-#		for (my $v=0;$v<$num_vals_1;$v++) {
-#		    print "\t$v:\t".$vals_1[$v]."\n";
-#		}
-
 		#-----------------------------+
 		# SECOND SET OF VALS          |
 		#-----------------------------+
@@ -291,33 +284,37 @@ for my $ind_file_1 (@fasta_files) {
 		my @vals_2 = split(/\s+/, $data[1]) ; 
 		my $num_vals_2 = @vals_2;
 		
-		# Test print of the split output
-#		print "\nVAL COLS TWO: $num_vals_2.\n" if $verbose;
-#		for (my $v=0;$v<$num_vals_2;$v++) {
-#		    print "\t$v:\t".$vals_2[$v]."\n";
-#		}
-
 		my $p_id = $vals_2[0];
 		my $p_sim = $vals_2[1];
 		my $sw = $vals_2[2];
+		
+		my $query_start = $vals_2[4];  # an0
+		my $query_end = $vals_2[5];    # ax0
 
-
-#		# Test of labeled output
-#		print "\tPercent ID:\t$p_id\n";
-#		print "\tPercent Sim:\t$p_sim\n";
-#		print "\tS-W:\t$sw\n";
 		#-----------------------------+
 		# PRINT OUTPUT                |
 		#-----------------------------+
-		#print STDOUT "$i\t";           # Use i j ID for testing
-		#print STDOUT "$j\t";           # Use i j ID for testing
                 print STDOUT "$seq1_id\t";     # Use seq1 id from fasta file
 		print STDOUT "$seq2_id\t";     # Use seq2 id from fasta file
 		print STDOUT "$z_score\t";     # Z score
 		print STDOUT "$e_val\t";       # E value
 		print STDOUT "$p_id\t";        # Percent ID
 		print STDOUT "$p_sim\t";       # Percent Similarity
-		print STDOUT "$sw\n";          # Smith Waterman Score
+		print STDOUT "$sw\t";          # Smith Waterman Score
+		print STDOUT "$query_start\t"; # Start align in query seq
+		print STDOUT "$query_end\n";   # End align in query seq
+
+		#-----------------------------+
+		# PRINT SIMILARITY OUTPUT     |
+		#-----------------------------+
+                print SIMOUT "$seq1_id\t";     # Use seq1 id from fasta file
+		print SIMOUT "$seq2_id\t";     # Use seq2 id from fasta file
+		print SIMOUT "$z_score\n";     # Z score, the similarity score
+
+		#-----------------------------+
+		# PUSH VALS TO Z SCORES ARRAY |
+		#-----------------------------+
+		push (@z_scores, $z_score);
 
 		# No longer in info for best alignment
 		$in_align=0;
@@ -336,16 +333,35 @@ for my $ind_file_1 (@fasta_files) {
 
 	} # End of while ALIGN
 
-    }
+    } # End of for each file in the database directory
 
-}
+    #-----------------------------+
+    # GET THE MEDIAN Z VALUE      |
+    #-----------------------------+
+    # Using median PERL code from 
+    # http://dada.perl.it/shootout/moments.perl.html
+    
+    @z_scores = sort { $a <=> $b } @z_scores;
+    my $n = scalar(@z_scores);
+    my $mid = int($n/2);
+    my $z_median = ($n % 2) ? $z_scores[$mid] : 
+	($z_scores[$mid] + $z_scores[$mid-1])/2;
+    
+    # Z median is sent out to the preferences file
+    print STDERR "z_score median: $z_median\n";
+    print PREFOUT "$z_median\n";
+
+    # Empty the Z Value array
+    @z_scores = ();
+
+} # End of for each file in the query dir
 
 #-----------------------------+
 # CLOSE OPEN FILES            |
 #-----------------------------+
-close (VECOUT);
 close (SIMOUT);
 close (IDOUT);
+close (PREFOUT);
 
 exit;
 
@@ -383,6 +399,10 @@ sub print_help {
     exit;
 }
 
+
+sub median {
+
+}
 
 =head1 NAME
 
@@ -509,7 +529,8 @@ VERSION: $Rev$
 # 02/18/2008
 # - Working on getting the sequence ID from the fasta file name
 # - Testing on large database
-# - Should extract length of the query sequence and report this as well
+# - Cleaning up code after first SVN commit
+# - Adding code to write vectors and matrix files
 #
 # TO DO:
 # - Write to external file
@@ -519,3 +540,5 @@ VERSION: $Rev$
 # - Use dbdir to allow for a database directory that is separate from
 #   the query dir. This will make it easier to split the program
 #   across nodes?? Would as
+# - Should extract length of the query sequence and report this as well
+# - May want to add ability to sort the fasta file as integer names
