@@ -141,20 +141,19 @@ if ($show_version) {
 #-----------------------------+
 # CHECK REQUIRED VARIABLES    |
 #-----------------------------+
-if ( (!$infile) || (!$outfile) ) {
-    print STDERR "\a";
-    print STDERR "Infile must be specified at command line\n" if (!$infile);
-    print STDERR "Outfile must be specified at command line\n" if (!$outfile);
-#    print STDERR "Blast parsing option must be specified at command line\n" 
-#	if (!$blast_opt);
-    exit;
-}
-
-
+# Currrently not variables are required.
 
 #-----------------------------------------------------------+
 # MAIN BODY                                                 |
 #-----------------------------------------------------------+
+
+# Print to outfile if one specified, otherwise to STDOUT
+if ($outfile) {
+    open (SIMOUT, ">$outfile");
+} 
+else {
+    open (SIMOUT, ">&STDOUT");
+}
 
 #-----------------------------------------------------------+
 # BITSCORE OF BEST HSP : OPTION 1                           |
@@ -206,15 +205,23 @@ if ($blast_opt =~ "1" ) {
 #-----------------------------------------------------------+
 elsif ( $blast_opt =~ "2" ) {
     
-
+    my $blast_report;
     my $count_result = 0;
     print "Parsing tiled HSPs\n" if $verbose;
     
-    # Open the BLAST report object
-    # blasttable for -m8 output
-    my $blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
-                                           '-file'   => $infile)
-        || die "Could not open BLAST input file:\n$infile.\n";
+
+    # OPEN STDIN OR FILE PATH
+    if (!$infile) {
+	$blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
+					    '-fh'   => \*STDIN )
+	    || die "Could not open BLAST input from STDIN.\n";
+    }
+    else {
+	$blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
+					    '-file'   => $infile)
+	    || die "Could not open BLAST input file:\n$infile.\n";
+    }
+
 
     while (my $blast_result = $blast_report->next_result()) {
 	
@@ -231,9 +238,15 @@ elsif ( $blast_opt =~ "2" ) {
 	    #print STDOUT $blast_result->query_name."\t";
 	    #print STDOUT $blast_hit->name."\t";
 
+#	    # PRINTING PARSED NAMES
+#	    print STDOUT "$x_val\t$y_val\t";
+#	    print STDOUT $blast_hit->bits()."\n";
+
+	    # 07/15/2008
+	    # Changing to the following
 	    # PRINTING PARSED NAMES
-	    print STDOUT "$x_val\t$y_val\t";
-	    print STDOUT $blast_hit->bits()."\n";
+	    print SIMOUT "$x_val\t$y_val\t";
+	    print SIMOUT $blast_hit->bits()."\n";
 	    
 	} # End of next BLAST hit
 	
@@ -241,23 +254,29 @@ elsif ( $blast_opt =~ "2" ) {
 }
 
 #-----------------------------+
-# TILED PERCENT ID : OPTION 4 |
+# TILED SIGNIFICANCE : OPT 4  |
 #-----------------------------+
 elsif ( $blast_opt =~ "4"  ) {
     
-
-    
+    my $blast_report;
     my $count_result = 0;
     print "Parsing tiled HSPs\n" if $verbose;
     
     # Open the BLAST report object
     # blasttable for -m8 output
-    my $blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
-                                           '-file'   => $infile)
-        || die "Could not open BLAST input file:\n$infile.\n";
-    
-    if ($blast_report) { print "Blast report is valid\n"; }
-    
+   # OPEN STDIN OR FILE PATH
+    if (!$infile) {
+	$blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
+					    '-fh'   => \*STDIN )
+	    || die "Could not open BLAST input from STDIN.\n";
+    }
+    else {
+	$blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
+					    '-file'   => $infile)
+	    || die "Could not open BLAST input file:\n$infile.\n";
+    }
+
+
     while (my $blast_result = $blast_report->next_result()) {
 	
 	while (my $blast_hit = $blast_result->next_hit()) {
@@ -274,20 +293,25 @@ elsif ( $blast_opt =~ "4"  ) {
 	    #print STDOUT $blast_hit->name."\t";
 
 	    # PRINTING PARSED NAMES
-	    print STDOUT "$x_val\t$y_val\t";
-	    print STDOUT $blast_hit->bits()."\n";
+	    print SIMOUT "$x_val\t$y_val\t";
+	    print SIMOUT $blast_hit->significance()."\n";
 	    
 	} # End of next BLAST hit
 
     } # End of next BLAST result
 } else {
     print "\a";
-    print "A valid BLAST parsing option was not passed at the command line\n";
+    print STDERR "A valid BLAST parsing option was not passed at "
+	."the command line\n";
 }
 
 # END OF PROGRAM
+close (SIMOUT);
 exit 0;
 
+#-----------------------------------------------------------+
+# SUBFUNCTIONS                                              |
+#-----------------------------------------------------------+
 
 sub print_help {
     my ($help_msg, $podfile) =  @_;
@@ -361,7 +385,7 @@ cnv_blast2sim.pl - Convert BLAST report to similarity file
 
 =head1 VERSION
 
-This documentation refers to cnv_blast2sim.pl version $Rev:$
+This documentation refers to cnv_blast2sim.pl version $Rev$
 
 =head1 SYNOPSIS
 
@@ -369,10 +393,11 @@ This documentation refers to cnv_blast2sim.pl version $Rev:$
 
     cnv_blast2sim.pl -i BlastOutput.bln -o SimFile.txt
 
-=head2 Required Arguments
+=head2 Commonly Used Arguments
 
     -i, --infile    # Path to the input file to parse
     -o, --outfile   # Path to the output similarity file
+    -b              # Blast data to use for similairty metric 
 
 =head1 DESCRIPTION
 
@@ -384,17 +409,19 @@ As part of the process this script also parses the
 RepMiner header format and returns the unique identifier
 number from the fasta header.
 
-=head1 REQUIRED ARGUMENTS
+=head1 COMMONLY USED ARGUMENTS
 
 =over 2
 
 =item -i,--infile
 
-Path of the BLAST file to be parsed.
+Path of the BLAST file to be parsed. If no infile argument is used
+the program will attempt to parse from STDIN.
 
 =item -o,--outfile
 
-Path of the output file.
+Path of the output file. If not outfile arugment is used, the program
+will send data to standard output.
 
 =item -b, --blast-opt
 
@@ -413,12 +440,12 @@ Use a tiled BITSCORE value. This is the default option.
 
 =item 3.
 
-Use the percent id of the best HSP. THIS OPTION IS NOT CURRENTLY
-IMPLEMENTED.
+Use the significance value of the best HSP. 
+THIS OPTION IS NOT CURRENTLY IMPLEMENTED.
 
 =item 4.
 
-Use a tiled percent id value.
+Use a tiled significance value
 
 =back
 
@@ -568,10 +595,9 @@ STARTED: 02/24/2008
 
 UPDATED: 07/15/2008
 
-VERSION: $Rev:$
+VERSION: $Rev$
 
 =cut
-
 
 #-----------------------------------------------------------+
 # CHANGELOG                                                 |
@@ -584,15 +610,15 @@ VERSION: $Rev:$
 #    1 --> Bitscore of Best HSP from -m8 BLAST output
 #    2 --> Bitscore of Tiled HSP from -m8 BLAST output 
 #          This option uses the BioPerl BLAST parsing
-#    3 --> PID of Best HSPs
-#    4 --> PID of Tiled HSPs
+#    3 --> Significance of the best scoring HSP
+#    4 --> Significance of Tiled HSPs
 # 
 # 07/15/2008
 # - Renamed from extract_blast.pl to cnv_blast2sim.pl
 #   this name reflects the fact this this converts native
 #   m8 BLAST output to a simple three column similarity
 #   file.
-# - Adding option for input from STDIN
+# - Added the option to print output to STDOUT when the
+#   the infile argument is not given
+# - Added the option for input from STDIN
 
-# TO DO:
-# Add option for PID instead of BIT SCORE
