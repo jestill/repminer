@@ -6,9 +6,9 @@
 #-----------------------------------------------------------+
 #                                                           |
 #  AUTHOR: James C. Estill                                  |
-# CONTACT: JamesEstill_at_gmail.com
+# CONTACT: JamesEstill_at_gmail.com                         |
 # STARTED: 02/24/2008                                       |
-# UPDATED: 02/26/2008                                       |
+# UPDATED: 07/15/2008                                       |
 #                                                           |
 # DESCRIPTION:                                              |
 # Extract blast -m8 output to sql ready format or other     |
@@ -20,6 +20,11 @@
 # extract_blast.pl -i infile -o outfile.txt                 |
 #                                                           |
 #-----------------------------------------------------------+
+# TODO:
+#  Making parsing the fasta header to integer an option.
+#  The advantage of using a simple integer is that this 
+#  reduces the size of the file needed to store the results.
+#
 # FIRST:
 # extract_blast.pl my_blast_out.blo > ltr_ltr.txt
 # THEN CREATE TABLE TO HOLD THIS DATA:
@@ -111,6 +116,10 @@ if ( (!$infile) || (!$outfile) || (!$blast_opt) ) {
     exit;
 }
 
+#-----------------------------------------------------------+
+# BITSCORE OF BEST HSP : OPTION 1                           |
+#-----------------------------------------------------------+
+# This option is not dependent on bioperl
 if ($blast_opt =~ "1" ) {
 
     print STDERR "Parsing Best HSP\n" if $verbose;
@@ -150,11 +159,13 @@ if ($blast_opt =~ "1" ) {
 	}
     } # END OF WHILE BLAST IN
 } # End of if BLAST Option = 0
+
+#-----------------------------------------------------------+
+# TILED BITSCORE : OPTION 2                                 |
+#-----------------------------------------------------------+
 elsif ( $blast_opt =~ "2" ) {
     
-    #-----------------------------+
-    # TILED BITSCORE              |
-    #-----------------------------+
+
     my $count_result = 0;
     print "Parsing tiled HSPs\n" if $verbose;
     
@@ -189,11 +200,13 @@ elsif ( $blast_opt =~ "2" ) {
 	
     } # End of next BLAST result
 }
+
+#-----------------------------+
+# TILED PERCENT ID : OPTION 4 |
+#-----------------------------+
 elsif ( $blast_opt =~ "4"  ) {
     
-    #-----------------------------+
-    # TILED PERCENT ID            |
-    #-----------------------------+
+
     
     my $count_result = 0;
     print "Parsing tiled HSPs\n" if $verbose;
@@ -250,5 +263,8 @@ exit;
 #    3 --> PID of Best HSPs
 #    4 --> PID of Tiled HSPs
 # 
+# 07/15/2008
+# - Adding option for input from STDIN
+
 # TO DO:
 # Add option for PID instead of BIT SCORE
