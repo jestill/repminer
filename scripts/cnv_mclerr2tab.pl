@@ -1,20 +1,19 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# cnv_mclerr2tab.pl - Convert MCL CPM file to tab delim txt    |
+# cnv_mclerr2tab.pl - Convert MCL STDERR to tab delim text  |
 #                                                           |
 #-----------------------------------------------------------+
 #                                                           |
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: JamesEstill_at_gmail.com                         |
-# STARTED: 07/17/2008                                       |
-# UPDATED: 07/17/2008                                       |
+# STARTED: 07/20/2008                                       |
+# UPDATED: 07/20/2008                                       |
 #                                                           |
 # DESCRIPTION:                                              |
-#  Convert the output from the MCL program                  |
-#   Assumes clm info --node-all-measure                     |
-#  for now to get a simple parse of this data.              | 
-#  Can use -i and -o flags, or STDIN and STDOUT.            |
+#  Parse the mcl stderr files in a directory and return     |
+#  the results returned by mcl in a tab delimited           |
+#  text file.                                               |
 #                                                           |
 # EXAMPLES:                                                 |
 # cnv_cpm2tab.pl -i infile.cpm -o outfile.cpm.txt           |
@@ -43,7 +42,7 @@ my ($VERSION) = q$Rev:$ =~ /(\d+)/;
 #-----------------------------+
 # VARIABLE SCOPE              |
 #-----------------------------+
-my $infile;
+my $indir;
 my $outfile;
 
 # BOOLEANS
@@ -53,6 +52,7 @@ my $show_usage = 0;
 my $show_version = 0;
 my $show_man = 0;
 my $show_help = 0; 
+my $debug = 0;
 
 # Index Vals
 my $pre_cat_id ="0";
@@ -60,11 +60,11 @@ my $pre_cat_id ="0";
 #-----------------------------+
 # COMMAND LINE OPTIONS        |
 #-----------------------------+
-$infile = shift;
-$outfile = shift;
+#$indir = shift;
+#$outfile = shift;
 
 my $ok = GetOptions(# REQUIRED OPTIONS
-                    "i|infile=s"    => \$infile,
+                    "i|indir=s"    => \$indir,
                     "o|outfile=s"   => \$outfile,
                     # ADDITIONAL OPTIONS
                     "q|quiet"       => \$quiet,
@@ -74,7 +74,6 @@ my $ok = GetOptions(# REQUIRED OPTIONS
                     "version"       => \$show_version,
                     "man"           => \$show_man,
                     "h|help"        => \$show_help,);
-
 
 #-----------------------------+
 # SHOW REQUESTED HELP         |
@@ -105,21 +104,25 @@ if ($show_version) {
 # CHECK REQUIRED VARIABLES    |
 #-----------------------------+
 # Currrently not variables are required.
+if (!$indir) {
+    print "An input directory is required.";
+    exit;
+}
+
+
+#-----------------------------+
+# CHECK FOR SLASH IN DIR      |
+# VARIABLES                   |
+#-----------------------------+
+# If the indir does not end in a slash then append one
+# TO DO: Allow for backslash
+unless ($indir =~ /\/$/ ) {
+    $indir = $indir."/";
+}
 
 #-----------------------------------------------------------+
 # MAIN BODY                                                 |
 #-----------------------------------------------------------+
-
-# Open infile if one is passed, otherwise use STDIN
-if ($infile) {
-    open (CLMIN, "<$infile") ||
-	die "Can not open infile:\n$infile";
-}
-else {
-    open (CLMIN, "<&STDIN") ||
-	die "Can not open STDIN for input\n"
-}
-
 # Print to outfile if one specified, otherwise to STDOUT
 if ($outfile) {
     open (TABOUT, ">$outfile") ||
@@ -130,50 +133,206 @@ else {
 	die "Can not open STDOUT for output\n";
 }
 
+
+#-----------------------------+
+# Get the FASTA files from the|
+# directory provided by the   |
+# var $indir                  |
+#-----------------------------+
+opendir( DIR, $indir ) || 
+    die "Can't open directory:\n$indir"; 
+my @err_files = grep /\.mcl\.err$/, readdir DIR ;
+closedir( DIR );
+my $count_files = @err_files;
+
+#-----------------------------+
+# SHOW ERROR IF NO FILES      |
+# WERE FOUND IN THE INPUT DIR |
+#-----------------------------+
+if ($count_files == 0) {
+    print "\a";
+    print "\nERROR: No mcl STDERR files were found in the input directory\n".
+	"$indir\n".
+	"These files must have the extension *mcl.err .\n\n";
+    exit;
+}
+
+
 #-----------------------------------------------------------+
 # PARSE CLM TO TAB DELIMITED OUTPUT                         |
 #-----------------------------------------------------------+
-my $line_num = 0;
-while (<CLMIN>) {
-    chomp;
-    $line_num++;
+for my $ind_file (@err_files)
+{
 
-    # Print line
-    my @clm_parts = split;
-    my $nm = substr ($clm_parts[0], 3);   # Name of the graph file
-    my $ni = substr ($clm_parts[1], 3);   # Node index id
-    my $ci = substr ($clm_parts[2], 3);   # Cluster index id
-    my $nn = substr ($clm_parts[3], 3);   # Number of neighbors of the node
-    my $nc = substr ($clm_parts[4], 3);   # Cluster size
-    my $ef = substr ($clm_parts[5], 3);   # Efficiency
-    my $em = substr ($clm_parts[6], 3);   # Efficiency Max
-    my $mf = substr ($clm_parts[7], 3);   # Mass fraction
-    my $ma;   # --
-    my $xn = substr ($clm_parts[9], 3);    # Num of neighbors not in the cluster
-    my $xc = substr ($clm_parts[10], 3);   # Num cluster nodes not in neigh list
-    my $ns;
-    my $ti;
-    my $to;
-    my $al;
+    my $file_path = $indir.$ind_file;
+    #print "\a";
 
-    #print "$_\n";
-    #print "\t$ni\n";
-    #print "\t$ci\n";
-    #print "\t$ef\n"; # 
-    #print "\t$mf\n";
 
-    # AS A SIMPLIFIED TAB DELIMITED FILE OF MOST IMPORTANT PARTS
-    print TABOUT "$ni\t$ci\t$ef\t$mf\n";
+    # VARAIBLES TO EXTRACT
+    my $num_nodes = "";          # The number of nodes in the matrix
+    my $mcl_i_val = "";          # The inflation value used in mcl
+    my $mcl_s_val = "";          # The scheme value used
+    my $mcl_total_time = 0;     # Total time to finish iterations
+    my $mcl_num_clusters = "";   # Number of mcl clusters found
+    my $mcl_prune_synopsis = ""; # Synopsis score
+    my $mcl_prune_mark_1 = "";   #
+    my $mcl_prune_mark_2 = "";   #
+    my $mcl_prune_mark_3 = "";   #
+    my $mcl_num_iter = "";       # Total number of iterations
+    my $mcl_out_file = "";
+    #my $iter_time = "0";
 
-#    if ($line_num == 5) {
-#	print STDERR "\nDebug exit\n\n";
-#	exit 1
-#    };
+    # OPEN THE MCL STDERR FILE
+    open (MCLERRIN, "<$file_path") ||
+	die "Can not open the infile\n$file_path\n";
+    
+    # PARSE THE FILE
+    while (<MCLERRIN>) {
+	chomp;
+	
+	#print "$_\n";
+
+	#-----------------------------+
+	# GET ITERAND INFORMATION     |
+	#-----------------------------+
+	if (m/( *)(\d*)( *)\.{19}( *)(.*)/) {
+
+	    # The following for debugging
+	    if ($debug) {
+		print STDERR "$_\n";
+		print STDERR "One---".$1."-\n" if ($1);	    
+		print STDERR "Two---".$2."-\n" if ($2);	    
+		print STDERR "Three-".$3."-\n" if ($3);
+		print STDERR "Four--".$4."-\n" if ($4);
+		print STDERR "Five--".$5."-\n" if ($5);
+		print STDERR "Six---".$6."-\n" if ($6);
+		print STDERR "Seven-".$7."-\n" if ($7);
+	    }
+
+	    if ($5) {
+		my @iter_parts = split(/ /, $5);
+
+		my $num_iter_parts = @iter_parts;
+
+		if ($debug) {
+		    print STDERR "Parts $num_iter_parts \n";
+		    print STDERR "\t nip0: ".$iter_parts[0]."\n" 
+			if ($iter_parts[0]);
+		    print STDERR "\t nip1: ".$iter_parts[1]."\n" 
+			if ($iter_parts[1]);
+		    print STDERR "\t nip2: ".$iter_parts[2]."\n" 
+			if ($iter_parts[2]);
+		    print STDERR "\t nip3: ".$iter_parts[3]."\n" 
+			if ($iter_parts[3]);
+		}
+		
+		if ($num_iter_parts == 3) {
+		    my $iter_time = $iter_parts[1];
+		    $mcl_num_iter = $2;
+		    $mcl_total_time = $iter_time + $mcl_total_time;
+		    #my @slash_parts = split(/\//, $iter_parts[2]);
+		}
+		elsif ($num_iter_parts == 4) {
+		    my $iter_time = $iter_parts[2];
+		    #print "$_\n";
+		    $mcl_num_iter = $2;
+		    $mcl_total_time = $iter_time + $mcl_total_time;
+		    #my @slash_parts = split(/\//, $iter_parts[3]);
+		}
+
+
+	    }
+	    
+	}
+
+	#-----------------------------+
+	# GET NUMBER OF CLUSTERS      |
+	#-----------------------------+
+	if (m/\[mcl\] (.*) clusters found/) {
+	    $mcl_num_clusters=$1;
+	}
+
+
+	#-----------------------------+
+	# GET OUTPUT FILE NAME        |
+	#-----------------------------+
+	if (m/output is in (.*)/) {
+	    #print "$_\n";
+	    #print $1."\n";
+	    $mcl_out_file = $1;
+	    # Get s and I value from file name if possible
+	    if ($mcl_out_file =~ m/.*\/(.*)i\-(.*)_s\-(.*).mcl/) {
+		$mcl_i_val = $2;
+		$mcl_s_val = $3;
+	    }
+	}
+	
+	#-----------------------------+
+	# JURY PRUNING SYNOPSIS       |
+	#-----------------------------+
+	if (m/jury pruning synopsis: <(.*)>/) {
+	    $mcl_prune_synopsis = $1;
+	    #print "";
+	}
+
+	#-----------------------------+
+	# JURY PRUNING MARKS          |
+	#-----------------------------+
+	if (m/jury pruning marks(.*)<(.*)>/) {
+	    my @prune_marks = split(/,/, $2);
+	    $mcl_prune_mark_1 = $prune_marks[0];
+	    $mcl_prune_mark_2 = $prune_marks[1];
+	    $mcl_prune_mark_3 = $prune_marks[2];
+	}
+
+	#-----------------------------+
+	# GET NUMBER OF NODES         |
+	#-----------------------------+
+	if (m/matrix with (.*) entries/) {
+	    $num_nodes = $1;
+	}
+
+    }
+    close MCLERRIN;
+    
+    #-----------------------------+
+    # PRINT EXTRACTED DATA        |
+    #-----------------------------+
+    if ($debug) {
+	print STDERR "-----------------------------\n";
+	print STDERR " File: ".$mcl_out_file."\n";
+	print STDERR "I-Val: ".$mcl_i_val."\n";
+	print STDERR "S-Val: ".$mcl_s_val."\n";
+	print STDERR "Nodes: ".$num_nodes."\n";
+	print STDERR " Iter: ".$mcl_num_iter."\n";
+	print STDERR "Clust: ".$mcl_num_clusters."\n";
+	print STDERR " Time: ".$mcl_total_time."\n";
+	print STDERR "Synop: ".$mcl_prune_synopsis."\n";
+	print STDERR "Mark1: ".$mcl_prune_mark_1."\n";
+	print STDERR "Mark2: ".$mcl_prune_mark_2."\n";
+	print STDERR "Mark3: ".$mcl_prune_mark_3."\n";
+	print STDERR "-----------------------------\n";
+	print STDERR "\n";
+    }
+    
+    print TABOUT $mcl_out_file."\t";
+    print TABOUT $mcl_i_val."\t";
+    print TABOUT $mcl_s_val."\t";
+    print TABOUT $num_nodes."\t";
+    print TABOUT $mcl_num_iter."\t";
+    print TABOUT $mcl_num_clusters."\t";
+    print TABOUT $mcl_total_time."\t";
+    print TABOUT $mcl_prune_synopsis."\t";
+    print TABOUT $mcl_prune_mark_1."\t";
+    print TABOUT $mcl_prune_mark_2."\t";
+    print TABOUT $mcl_prune_mark_3."\t";
+    print TABOUT "\n";
+
+
 }
 
-# END OF PROGRAM
-close (CLMIN);
 close (TABOUT);
+
 exit 0;
 
 #-----------------------------------------------------------+
@@ -248,73 +407,41 @@ __END__;
 
 =head1 NAME
 
-cnv_blast2sim.pl - Convert BLAST report to similarity file
+cnv_mclerr2tab.pl - Convert mcl STDERR output to tab delim text
 
 =head1 VERSION
 
-This documentation refers to cnv_blast2sim.pl version $Rev: 46 $
+This documentation refers to cnv_mclerr2tab.pl version $Rev:$
 
 =head1 SYNOPSIS
 
 =head2 Usage
 
-    cnv_blast2sim.pl -i BlastOutput.bln -o SimFile.txt
+    cnv_mclerr2tab.pl -i indir/ -o outfile.txt
 
 =head2 Commonly Used Arguments
 
-    -i, --infile    # Path to the input file to parse
-    -o, --outfile   # Path to the output similarity file
-    -b              # Blast data to use for similairty metric 
+    -i, --indir     # Path to the dir with the files to parse
+    -o, --outfile   # Path to the output text file
 
 =head1 DESCRIPTION
 
-Extract blast -m8 or -m9 output to a simple three column
-similarity file. This output file is a tab delimited
-text file that can be easily imported into a SQL database
-or used as an import file for clustering.
-As part of the process this script also parses the
-RepMiner header format and returns the unique identifier
-number from the fasta header.
+Parse the mcl stderr files in a directory and return
+the results returned by mcl in a tab delimited
+text file.
 
 =head1 COMMONLY USED ARGUMENTS
 
 =over 2
 
-=item -i,--infile
+=item -i,--indir
 
-Path of the BLAST file to be parsed. If no infile argument is used
-the program will attempt to parse from STDIN.
+Directory containing the mcl stderr output files to parse.
 
 =item -o,--outfile
 
 Path of the output file. If not outfile arugment is used, the program
 will send data to standard output.
-
-=item -b, --blast-opt
-
-Number indicating the option used to extract a similarity
-score from a BLAST result. Valid arguments are:
-
-=over
-
-=item 1.
-
-Use the BITSCORE of the best HSP.
-
-=item 2.
-
-Use a tiled BITSCORE value. This is the default option.
-
-=item 3.
-
-Use the significance value of the best HSP. 
-THIS OPTION IS NOT CURRENTLY IMPLEMENTED.
-
-=item 4.
-
-Use a tiled significance value
-
-=back
 
 =back
 
@@ -366,12 +493,9 @@ below.
 
 =over 2
 
-=item ERROR: Could not create the output directory
+=item ERROR: Error message
 
-The output directory could not be created at the path you specified. 
-This could be do to the fact that the directory that you are trying
-to place your base directory in does not exist, or because you do not
-have write permission to the directory you want to place your file in.
+Error messages will go here.
 
 =back
 
@@ -386,21 +510,17 @@ or any options in the user environment.
 
 =over
 
-=item * NCBI blastall
+=item * MCL
 
-The latest version of the NCBI blastall program can be downloaded from:
-ftp://ftp.ncbi.nih.gov/blast/executables/LATEST
+This program will parse the output of MCL Markov Clustering program
+available at 
+( http://micans.org/mcl/ ).
 
 =back
 
 =head2 Required Perl Modules
 
 =over
-
-=item * Bio::SearchIO
-
-This module is part of bioperl and is required to parse BLAST
-output in a format that is tiled across all HSPs.
 
 =item * Getopt::Long
 
@@ -425,19 +545,15 @@ Sourceforge website: http://sourceforge.net/tracker/?group_id=192812
 
 =over
 
-=item * Limited to m8 or m9 BLAST format
-
-This script is designed to be a lean a fast parser of the 
-similarity information from BLAST. It is therefore limited
-to using the simple m8 or m9 BLAST alignment format.
+=item * Known to work with MCL 1.007-grumpy-gryphon, 08-157.
+Earlier or later versions may not be correctly parsed. 
 
 =back
 
 =head1 SEE ALSO
 
-The cnv_blast2sim.pl program is part of the repminer package of 
-repeat element annotation programs.
-See the DAWG-PAWS web page 
+This program is part of the RepMiner suite of programs.
+For more information see
 ( http://repminer.sourceforge.net/ )
 or the Sourceforge project page 
 ( http://sourceforge.net/projects/repminer/ )
@@ -458,11 +574,11 @@ James C. Estill E<lt>JamesEstill at gmail.comE<gt>
 
 =head1 HISTORY
 
-STARTED: 02/24/2008
+STARTED: 07/20/2008
 
-UPDATED: 07/15/2008
+UPDATED: 07/20/2008
 
-VERSION: $Rev: 46 $
+VERSION: $Rev:$
 
 =cut
 
@@ -470,22 +586,7 @@ VERSION: $Rev: 46 $
 # CHANGELOG                                                 |
 #-----------------------------------------------------------+
 #
-# 03/09/2008
-# - Added Getopt long 
-# - Added infile and outfile as reuired command line options
-# - Added option to select BLAST parsing options
-#    1 --> Bitscore of Best HSP from -m8 BLAST output
-#    2 --> Bitscore of Tiled HSP from -m8 BLAST output 
-#          This option uses the BioPerl BLAST parsing
-#    3 --> Significance of the best scoring HSP
-#    4 --> Significance of Tiled HSPs
-# 
-# 07/15/2008
-# - Renamed from extract_blast.pl to cnv_blast2sim.pl
-#   this name reflects the fact this this converts native
-#   m8 BLAST output to a simple three column similarity
-#   file.
-# - Added the option to print output to STDOUT when the
-#   the infile argument is not given
-# - Added the option for input from STDIN
+# 07/20/2008
+# - Program started with the design to to parse the
+#   mcl.err files in a directory.
 
