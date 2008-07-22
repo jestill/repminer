@@ -1,0 +1,37 @@
+#-----------------------------------------------------------+
+#                                                           |
+# RepMiner Config File                                      |
+#                                                           |
+#-----------------------------------------------------------+
+#                                                           |
+# This is a test config file for the RepeatMiner program.   |
+# Lines starting with the num char(#) will be ignored       |
+# Required options are                                      |
+# InputFile                                                 |
+# OutputDir                                                 |
+#-----------------------------------------------------------+
+#
+# VARNAME             VAR-VALUE
+# DATABASE VARIABLES
+DbUserName           jestill
+DbName               dbGinaPBS_big
+ABATable             tblAllByAll
+RepeatTable          tblRepeatID
+# INPUT FILES
+BLAST_AllByAll       /home/jestill/projects/RepMiner/gina_maize/PBS_big/PBS_big_PBS_big.blo
+BLAST_RepDB          /home/jestill/projects/RepMiner/gina_maize/PBS_big/PBS_big_Mips_e5.blo
+# OUTPUT DIRECTORY
+NetDir               /home/jestill/projects/RepMiner/GinaPBS_big/
+NetName              MaizePbsNet
+# ALL BY ALL BLAST VARIABLES
+A_MinQryLen          50
+A_MinScore           150
+A_MaxE               1.0e-03
+# REPEAT CLASSIFICATION BLAST VARIABLES
+MinQryLen            20
+MinScore             50
+MaxE                 1.0e-03
+# ALL BY ALL MATRIX DRAWING VARIABLES
+xsc                  2
+ysc                  2
+pxs                  4
