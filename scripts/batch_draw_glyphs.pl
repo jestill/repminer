@@ -187,6 +187,7 @@ while (<INFILE>) {
     my $env_end = $in_data[36];
     my $flank_5_seq = $in_data[37];
     my $flank_3_seq = $in_data[38];
+    #my $starnd = $in_data[39] || "+";
     
     print $name."\n";
 
