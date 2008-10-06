@@ -89,6 +89,7 @@ my $show_usage = 0;
 my $show_version = 0;
 my $show_man = 0;
 my $show_help = 0; 
+my $blast_opt = 0;
 
 # Index Vals
 my $pre_cat_id ="0";
@@ -102,7 +103,7 @@ my $pre_cat_id ="0";
 my $ok = GetOptions(# REQUIRED OPTIONS
                     "i|infile=s"    => \$infile,
                     "o|outfile=s"   => \$outfile,
-		    "b|blast-opt=s" => \$blast_opt,  # Has default
+		    "b|blast-opt=s" => \$blast_opt,  # Has default 0
                     # ADDITIONAL OPTIONS
                     "q|quiet"       => \$quiet,
                     "verbose"       => \$verbose,
