@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# LIRIO ADD NUMBER                                          |
+# fasta2db.pl - Load fasta files to a MySQL database.       |
 #                                                           |
 #-----------------------------------------------------------+
 #  AUTHOR: James C. Estill                                  |
@@ -14,7 +14,7 @@
 #  to allow for easy parsing of fasta sequences.            |
 #                                                           |
 # USAGE:                                                    |
-#  ParseASGR.pl                                             |
+#  fasta2db.pl -i infile.fasta
 #                                                           |
 # REQUIREMENTS:                                             |
 #  -bioperl                                                 |
@@ -80,8 +80,7 @@ $DbUserPassword = $Options{p};
 #-----------------------------+
 # If the user did not give the password at the command
 # line then get it here.
-unless ($DbUserPassword)
-{
+unless ($DbUserPassword) {
     print "\nPassword for $DbUserName\n";
     system('stty', '-echo') == 0 or die "can't turn off echo: $?";
     $DbUserPassword = <STDIN>;
@@ -110,8 +109,7 @@ my $dbh = DBI->connect("DBI:mysql:database=$DbName;host=localhost",
 # PROCESS SEQUENCE FILE       |
 #-----------------------------+
 
-while (my $seq = $inseq->next_seq) 
-{
+while (my $seq = $inseq->next_seq)  {
     $SeqNum++;
     $SeqUniqueId = $seq->primary_id;
     $NewID = $SeqNum."|".$SeqUniqueId ;
@@ -123,7 +121,7 @@ while (my $seq = $inseq->next_seq)
     $seq->primary_id( $NewID );
     $seq->display_id( $NewID );
 
-    print "\tNEW ID: ".$NewID."\n";
+    print STDERR "\tNEW ID: ".$NewID."\n";
     
     #-----------------------------+
     # WRITE SEQUENCE RECORDS OUT  |
@@ -158,13 +156,11 @@ exit;
 #-----------------------------+
 # CREATE THE DATABASE TABLE   |
 #-----------------------------+
-sub CreateDBTable
-{
+sub CreateDBTable {
     my $TableName = $_[0];   
     
     # DROP THE TABLE it already exists
-    if (&does_table_exist( $dbh, $TableName ))
-    {
+    if (&does_table_exist( $dbh, $TableName )) {
 	$dbh->do("DROP TABLE ".$TableName);
     }
 
@@ -179,8 +175,7 @@ sub CreateDBTable
 
 }
 
-sub does_table_exist
-{
+sub does_table_exist {
     my ($dbh,$whichtable) = @_;
     my ($table,@alltables,$found);
     @alltables = $dbh->tables();
@@ -208,3 +203,7 @@ sub does_table_exist
 # 11/19/2007 
 # - Cleaned out old head1 and changed name from
 #   Fasta2DB.pl to fasta2db.pl
+# 
+# 11/20/2008
+# - Modifying to fit the general program options used 
+#   by the rest of the RepMiner package.
