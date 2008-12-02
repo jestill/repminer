@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# FASTA ADD NUMBER                                          |
+# fasta_add_num.pl - Add integer prefix to fasta headers    |
 #                                                           |
 #-----------------------------------------------------------+
 #  AUTHOR: James C. Estill                                  |
@@ -16,7 +16,7 @@
 #  id that can be used for reference.                       |
 #                                                           |
 # USAGE:                                                    |
-#  ParseASGR.pl -i infilepath -o outfilepath                |
+#  fata_add_num.pl -i infilepath -o outfilepath             |
 #                                                           |
 # REQUIREMENTS:                                             |
 #  -bioperl                                                 |
@@ -48,7 +48,7 @@ use Getopt::Std;               # Allows options flags at command line
 # LOCAL VARIABLES             |
 #-----------------------------+
 # USAGE STATEMENT
-my $Usage = "FastaAddNum.pl -i InFilePath -o OutFilePath\n";
+my $Usage = "fasta_add_num.pl -i InFilePath -o OutFilePath\n";
 #my $InSeqFile = "/home/jestill/projects/liriodendron/Lirio_data.fasta";
 #my $OutSeqPath = "/home/jestill/projects/liriodendron/Lirio_data_num";
 my $SeqFormat = "fasta";       # The input sequence format
@@ -109,7 +109,7 @@ while (my $seq = $inseq->next_seq)
     #-----------------------------+
     if (! $quiet)   # If not quiet
     {
-	print "\tNEW ID: ".$NewID."\n";
+	print STDERR "\tNEW ID: ".$NewID."\n";
     }
 
     #-----------------------------+
