@@ -148,7 +148,7 @@ else {
 while ( my $seq = $seq_in->next_seq() ) {
     
     # Set the sequence to the reverse complement
-    my $rev_com = $seq->revcom();   
+    my $rev_com = $seq->revcom();
     $seq_out->write_seq($rev_com);
 
     #$seq_out->write_seq();
