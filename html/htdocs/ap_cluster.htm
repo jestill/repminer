@@ -1,0 +1,777 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="Content-Language" content="en-us">
+  <meta http-equiv="Content-Type">
+  <link rel="stylesheet" type="text/css" href="css/repminer.css">
+  <title>RepMiner</title>
+  <link rel="SHORTCUT ICON"
+ href="file:///Users/jestill/code/repminer/trunk/html/jestill/JE5.ico">
+</head>
+<body>
+<table style="border-collapse: collapse;" id="AutoNumber1" border="0"
+ bordercolor="#111111" cellpadding="0" cellspacing="0" width="100%">
+  <tbody>
+    <tr>
+      <td width="50%"> <img src="ap_cluster_files/RepMiner.png"
+ border="1" height="115" width="326"></td>
+      <td width="50%"> <big style="font-weight: bold;"><big><a
+ class="mozTocH1" name="mozTocId974589"></a>RepMiner Process Manual<br>
+      <small>Data Clustering</small></big></big><br>
+      <br>
+      <a href="http://jestill.myweb.uga.edu">James C. Estill</a><br>
+November 7, 2008<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<hr>
+<big><big><a style="font-weight: bold;" class="mozTocH2"
+ name="mozTocId121997"></a><span style="font-weight: bold;">!! This
+Document is Under Current Development !!<br>
+<br>
+</span></big></big><a class="mozTocH4" name="mozTocId722650"></a><span
+ style="font-weight: bold;">This program manual and the scripts that
+make up the RepMiner
+package are under current development. Everything is subject to change
+without notice at this point. This software comes as is, without any
+expressed or implied warranty. Use at your own risk.</span><br
+ style="font-weight: bold;">
+<a style="font-weight: bold;" class="mozTocH4" name="mozTocId767722"></a><span
+ style="font-weight: bold;">The RepMiner programs are released under
+the </span><a style="font-weight: bold;"
+ href="http://www.gnu.org/licenses/gpl.html">GNU License version 3</a><span
+ style="font-weight: bold;">.
+All other
+software linked from this site are covered by the individual licenses
+of the software authors. <br>
+<br>
+</span>The eventual goal of RepMiner development will be a fully
+database
+backed pipeline for the taxonomic classification and phylogenetic
+analysis of Transposable Elements. The current version of RepMiner may
+be considered a proof of concept suite of scripts that I used to
+develop
+taxonomies for transposable elements in maize. These are being made
+publically available in their current so that I can develop these
+programs with input from the larger community of TE biologists.<br>
+<br>
+<hr style="width: 100%; height: 2px;">
+<h1><a class="mozTocH1" name="mozTocId585042"></a><br>
+</h1>
+<ul id="mozToc">
+<!--mozToc h1 1 h2 2 h3 3 h4 4 h5 5 h6 6-->
+  <li><a href="#mozTocId264460">I. Getting Started</a>
+    <ul>
+      <li><a href="#mozTocId897190">A. Required Software</a></li>
+      <li><a href="#mozTocId803896">B. Installing RepMiner Programs</a></li>
+    </ul>
+  </li>
+  <li><a href="#mozTocId499677">II. Preparing Sequence Files for
+Analysis </a></li>
+  <li><a href="#mozTocId3944">III. Generating a Similarity Matrix</a>
+    <ul>
+      <li><a href="#mozTocId656547">A. Generating a similarity with
+NCBI-BLAST</a></li>
+      <li><a href="#mozTocId445904">B. Alternatives to BLAST</a></li>
+    </ul>
+  </li>
+  <li><a href="#mozTocId348610">IV. Clustering with Affinity
+Propagation</a>
+    <ul>
+      <li><a href="#mozTocId968408">A. Affinity Propagation Clustering
+Procedure
+in Matlab </a></li>
+      <li><a href="#mozTocId230287">B. Affinity Propagation Clustering
+Procedure
+in R </a></li>
+    </ul>
+  </li>
+  <li><a href="#mozTocId614497">V. Clustering with MCL</a></li>
+  <li><a href="#mozTocId105856">VI. Connected Components Clustering</a></li>
+  <li><a href="#mozTocId409097">VII. Determining the Masking Efficacy
+of an
+Exemplar Set</a> </li>
+  <li><a href="#mozTocId754158">Additional Tools</a></li>
+  <li><a href="#mozTocId629196">References</a></li>
+</ul>
+<h1><a class="mozTocH1" name="mozTocId791543"></a><br>
+</h1>
+<br>
+<hr style="width: 100%; height: 2px;">
+<h1><a class="mozTocH1" name="mozTocId264460"></a>I. Getting Started</h1>
+<h2><a class="mozTocH2" name="mozTocId897190"></a>A. Required Software</h2>
+RepMiner requires a number of external software packages. The sources
+to download these are listed below:<br>
+<dl>
+  <dt><span style="font-weight: bold;">Affinity Propagation Clustering</span><br>
+  </dt>
+  <dd>The Affinity Propagation is a general purpose unsupervised
+clustering program that cna be used for unsupervised clustering of
+sequence data. Multiple impelementations of the affinity propagation
+algorithm are
+available at:<br>
+    <a href="http://www.psi.toronto.edu/affinitypropagation/">http://www.psi.toronto.edu/affinitypropagation/</a>.</dd>
+  <dt style="font-weight: bold;">Cytoscape</dt>
+  <dd>The cytoscape program is used for visualizing networks. This is a
+java program available at <a href="http://www.cytoscape.org/">http://www.cytoscape.org/</a>.<br>
+  </dd>
+  <dt><span style="font-weight: bold;">Markov Clustering Algorithm - MCL</span><br>
+  </dt>
+  <dd>The Markov Clustering tool is a program that can be used for
+unsupervised clustering of sequence data. The MCL suite of programs is
+available at <a href="http://micans.org/mcl/">http://micans.org/mcl/</a>.<br>
+  </dd>
+  <dt><span style="font-weight: bold;">MySQL Database Software</span><br>
+  </dt>
+  <dd>Many parts of the currently implementation of RepMiner require a
+database back end. The database currently supported by RepMiner is
+MySQL available at <a href="http://mysql.com">http://mysql.com</a>.<br>
+  </dd>
+  <dt><span style="font-weight: bold;">Perl</span><br>
+  </dt>
+  <dd>All of the repminer programs ending in .pl are perl programs that
+require you to have a working copy of Perl installed. General
+information on&nbsp; Perl is available at <a
+ href="http://www.perl.org/">http://www.perl.org/</a>.<br>
+  </dd>
+  <dt style="font-weight: bold;">BioPerl</dt>
+  <dd>Some of the scripts also require that you have the bioperl
+libraries installed. Information on installing bioperl is available
+from <a href="http://www.bioperl.org/wiki/Installing_BioPerl">http://www.bioperl.org/wiki/Installing_BioPerl</a>
+and general information on BioPerl is available at <a
+ href="http://www.bioperl.org/wiki/Main_Page">http://www.bioperl.org/wiki/Main_Page</a>.</dd>
+  <dt style="font-weight: bold;">Subversion</dt>
+  <dd>Subversion is a version control system that allows multiple
+people to have working access to programming source code as it is being
+developed. You need to have Subversion installed to check out the
+current development copy of the RepMiner source code if you are not
+using the release available from SourceForge. You can obtain Subversion
+for all operating systems at <a href="http://subversion.tigris.org/">http://subversion.tigris.org/</a>.
+For Mac Users, subversion comes with Xcode 3 (<a
+ href="http://developer.apple.com/tools/xcode/">http://developer.apple.com/tools/xcode/</a>).<br>
+  </dd>
+</dl>
+<h2><a class="mozTocH2" name="mozTocId803896"></a>B. Installing
+RepMiner Programs</h2>
+There will soon be a downloadable version of the RepMiner available
+from the sourceforge project webpage.<br>
+<br>
+Currently you have to access the source code using subversion to check
+out the current code base as hosted by sourceforge. General information
+on using subversion at sourceforge is available at the <a
+ href="http://alexandria.wiki.sourceforge.net/Subversion+-+Version+Control+for+Source+Code">SourceForge
+web site</a>. You can also browse the repminer files at <a
+ href="http://repminer.svn.sourceforge.net/viewvc/repminer/">http://repminer.svn.sourceforge.net/viewvc/repminer/</a>.
+Specific instructions for using subversion to access the RepMiner code
+is available at <a href="https://sourceforge.net/svn/?group_id=192812">https://sourceforge.net/svn/?group_id=192812</a>.<br>
+<br>
+The scripts that make up the package are at <a
+ href="http://repminer.svn.sourceforge.net/viewvc/repminer/trunk/scripts/">http://repminer.svn.sourceforge.net/viewvc/repminer/trunk/scripts/</a>.
+To download an individual script, click on the script name and then
+click on the download link for the script that you want to download. <br>
+<br>
+The perl scripts for the repminer package are available in the base
+scripts directory, and the programs that have been written in the r
+statisical programming language are available in the r_scripts
+directory <a
+ href="http://repminer.svn.sourceforge.net/viewvc/repminer/trunk/scripts/r_scripts/">http://repminer.svn.sourceforge.net/viewvc/repminer/trunk/scripts/r_scripts/</a>.
+<br>
+<br>
+<h1><a class="mozTocH1" name="mozTocId499677"></a>II. Preparing
+Sequence
+Files for Analysis<br>
+</h1>
+Many steps in the RepMiner process require that sequences be identified
+by an
+integer from 1 to N where N is the number of sequences in your
+databases. The fasta_addnum.pl script is provided to prefix FASTA files
+with an integer that is separated from the rest of the header with a
+pipe delimiter.<br>
+<ol style="list-style-type: upper-alpha;">
+</ol>
+Prefix FASTA Name with Number
+<pre class="prettyprint"><span class="pun"> &gt;fasta_addnum.pl -i seq_file.fasta -o seq_file_num.fasta</span></pre>
+<h1><a class="mozTocH2" name="mozTocId3944"></a>III. Generating a
+Similarity Matrix</h1>
+There are multiple options for generating a matrix of similarity
+values. I prefer to use BLAST since it is fasta<br>
+<h2><a class="mozTocH3" name="mozTocId656547"></a>A. Generating a
+Similarity Matrix with NCBI-BLAST</h2>
+The FASTA file with the numerical prefix generated above will be used
+to create the BLAST database that will be used to create teh similarity
+matrix.<br>
+<br>
+<pre class="prettyprint"><span class="pun"> &gt;formatdb -p F -i seq_file_num.fasta -t seq_file_db -n seq_file_db</span></pre>
+The sequence file with the number prefixes can then be blasted against
+itself. To generate an outputfile from this blast result in the tab
+deliminted alignment fomat:<br>
+<pre class="prettyprint"><span class="pun"> &gt;blastall -p blastn -e 0.001 -m 8 -i seq_file_num.fasta -d seq_file_db -o seq_file_seq_file.bln</span></pre>
+The important BLAST parameters to consider include the number of
+alignments to return (-b) and the e-value threshold (-e). For databases
+of more then 250 sequences, you will need to specify that
+you want to return all the alignments with the b option. Setting b to
+the number of sequences in your database will return all significant
+alignments for the e value that you have selected. A good choice in
+e-value will depend on the length of your repeat sequences. For
+LTR-Retrotransposons e &lt; 1x10^10 work well as resolving
+relationships.<br>
+<br>
+The output file from BLAST will then need to be converted to a three
+column text file using the cnv_blast2sim.pl program.<br>
+<pre class="prettyprint"><span class="pun"> &gt;cnv_blast2sim.pl -i seq_file_seq_file.bln -o sim_vals.txt -b 2</span></pre>
+The cnv_blast2sim.pl program also accepts input from STDIN, this allows
+the output from BLAST to be piped directly into the cnv_blast2tab.pl
+program. The -b option in cnv_blast2sim.pl indicates how the BLAST
+results are to be parsed. The -b 2 option will parse the tab delimited
+BLAST output and will generate a tiled HSP result. The output of
+cnv_blast2sim.pl will produce files that are much smaller then
+traditional
+BLAST output. The following illustrates how to use the cnv_blast2tab.pl
+program to
+directly accept output from BLAST and convert it to a three column
+similarity file.<br>
+<pre class="prettyprint"><span class="pun"> &gt;blastall -p blastn -e 0.001 -m 8 -i seq_file_num.fasta -d seq_file_db | <br>  cnv_blast2sim.pl -o sim_vals.txt -b 2</span></pre>
+<br>
+<h2><a class="mozTocH3" name="mozTocId445904"></a>B. Generating a
+similarity matrix with FASTA<br>
+</h2>
+It is also possible to use the FASTA package to generate a similarity
+matrix. The program <a
+ href="http://repminer.svn.sourceforge.net/viewvc/repminer/trunk/scripts/batch_fasta.pl">batch_fasta.pl</a>
+allows you to generate a similarity matrix using the programs in the
+FASTA package. This program takes as its input a directory of FASTA
+files and can use prss34 or fasta34 to generate a similarity matrix. <br>
+<br>
+To use this program to analyze a directory of fasta files named
+'fasta_dir' using the fasta34 program, you would type:<br>
+<pre class="prettyprint"><span class="pun"> &gt;batch_fasta.pl -i fasta_dir -o output_dir -p fasta34</span></pre>
+<br>
+The output of this program will be placed in the output directory
+specified by the -o switch. There will be three files in this direcotry
+when the program has finished:<br>
+<br>
+1. similarity.txt<br>
+<br>
+<div style="margin-left: 40px;">This is a three column text file that
+includes:<br>
+</div>
+<ol style="margin-left: 40px;">
+  <li>Sequence Id of the query sequence. This is an integer from 1 to N.<br>
+  </li>
+  <li>Sequence Id of the hit sequence. This is an integer from 1 to N.<br>
+  </li>
+  <li>Z score of the similarThis output file can be used in the
+affinity propagation program or use for MCL clustering as described
+below.<span style="font-weight: bold; color: red;"></span><br>
+  </li>
+</ol>
+2. vecname.txt<br>
+<br>
+<div style="margin-left: 40px;">This text file will list the sequence
+id for the sequence id integers provided in similarity.txt<br>
+</div>
+<br>
+3. prefout.txt<br>
+<br>
+<div style="margin-left: 40px;">This text file will contain a
+preferenes file to load into the affinity propagation program. This
+will be the median z value score for all hits to an individual query
+sequence.<br>
+<br>
+</div>
+These files can be used in the affinity propagation program or use for
+MCL clustering as described below.
+<h1><a class="mozTocH2" name="mozTocId348610"></a>IV. Clustering with
+Affinity Propagation<br>
+</h1>
+<h2><a class="mozTocH2" name="mozTocId968408"></a><a name="ap_matlab"></a>A.
+Affinity Propagation Clustering
+Procedure
+in Matlab<br>
+</h2>
+Affinity Propagation provides a way to define the exemplars from a
+dataset of objects. The Affinity Propagation programs are external to
+the RepMiner <br>
+<br>
+Required Programs:<br>
+<ul>
+  <li>Matlab<br>
+Matlab is a commerical software package available at: <a
+ href="http://www.mathworks.com/products/matlab/">http://www.mathworks.com/products/matlab/</a>.<br>
+  </li>
+  <li>apclustersparsemex.m<br>
+This code is available at : <a
+ href="http://www.psi.toronto.edu/affinitypropagation/">http://www.psi.toronto.edu/affinitypropagation/</a><br>
+  </li>
+</ul>
+Input Files:<br>
+<ul>
+  <li>sim_vals.txt<br>
+A three column, tab delimited text file describing the similarity
+relationship between the sequences
+that you are clustering. This can be produced for BLAST output for DNA
+sequence data using
+the repminer program cnv_blast2sim.pl.</li>
+</ul>
+<ul>
+  <li>pref_vals.txt<br>
+A single column input file. There should be a single value for each
+sequence object in your database. This input file is optional since
+preference values can be set&nbsp; </li>
+</ul>
+In the following steps, the '&gt;' character represents the Unix shell
+command line while '&gt;&gt;' represents the command line from within
+Matlab. <br>
+<br>
+Start the Matlab program:<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;matlab</span><span class="pln"><br></span></pre>
+If you are in a environment that allows a Graphical User Interfact
+(GUI), this will open the Matlab program GUI, otherwise
+the command line mode will be started.<br>
+<br>
+Load the similarity data matrix text file into the matlab environment.<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;&gt;load sim_vals.txt</span><span class="pln"><br></span></pre>
+This will create a three column matrix named sim_vals.<br>
+<br>
+Now is a good time to look at the distribution of similarity values in
+your data if you have not already done this. To get a histogram of the
+values with 200 breaks:<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;&gt;hist (sim_vals(:,end),200)</span></pre>
+You can also get the minimum value, maximum value, median, mean and
+standard deviation as follows.<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;&gt;sim_min = min(sim_vals(:,3))<br></span><span
+ class="pun">  &gt;&gt;sim_max = max(sim_vals(:,3))</span><span
+ class="pun"><br>  &gt;&gt;sim_median = median(sim_vals(:,3))<br></span>  &gt;&gt;sim_mean = mean(sim_vals(:,3))<br>  &gt;&gt;sim_std = std(sim_vals(:,3))<br></pre>
+These values can be used to help select the preference values to use.
+The preference value could be a single value, or a vector of values
+that indicates the preference value for each row in the
+similarty matrix. Good starting points for preference values include
+the median of the
+distribution of similarity values, some number of standard deviations
+away from the median,
+or other values using the median and the minimum and maximum values.
+Higher preference values will result in more sequences being selected
+as exemplars while low preference values will result in fewer sequences
+being chosen as exemplars.<br>
+<br>
+Examples of selecting preference values are shown below:<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;&gt;pref_val = sim_median<br>  &gt;&gt;pref_val = sim_median - (5*sim_std)<br>  &gt;&gt;pref_val = sim_median - sim_max - sim_min<br></span></pre>
+Once a preference value or preference vector has been selected, run the
+affinity propagation
+program using this prefernce value as input for the apcluster program<br>
+<pre class="prettyprint"><span class="pun">  &gt;&gt;apclustersparsemex(sim_vals, pref_val)<br></span></pre>
+The results of the affinity propagation clustering algorithm will be
+stored in the vector named 'ans'. This data can be exported to a text
+file. This text file will be saved in your matlab working directory. I
+name
+these files based on the name of the similarity matrix and the value
+used for the preferences. For example, if the preference value was 400,
+I would name the output file sim_vals_400.txt. The following shows the
+general syntax to do this for the generic name sim_vals_result.txt.<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;&gt;dlmwrite('sim_vals_result.txt', ans, ';')</span></pre>
+To exit matlab simple type exit to get back to your unix shell<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;&gt;exit</span></pre>
+<p>The results of the affinity propagation program can be parsed into
+node attribute and edge attribute files for Cytoscape using the program
+<a
+ href="http://repminer.svn.sourceforge.net/viewvc/repminer/trunk/scripts/cnv_ap2na.pl">cnv_ap2na.pl</a>.
+This program will need to be run at the unix command
+line. See the cnv_ap2na.pl man page for more information on how to use
+this script. A typical usage example is shown below. All of the
+following will need to be typed in a single line, it is shown broken up
+below for clarity.<br>
+</p>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;cnv_ap2na.pl -i sim_vals_result.txt<br>                -o sim_vals_clust.NA<br></span><span
+ class="pun">                -x sim_vals_exemp.NA</span><br><span
+ class="pun">                -e sim_vals_edge.EA</span><br>                --header<span
+ class="pun"> SIM_VALS_CLUSTERS<br></span>                --ex-header<span
+ class="pun"> SIM_VALS_EXEMPLARS</span><br>                --header<span
+ class="pun"> SIM_VALS_EDGES</span> <br></pre>
+<p>The node attribute files created above can be used to determine the
+number of exemplars and the number of singletons resulting from the
+clustering. This is done using common unix command line tools to count
+the sequences identified as exemplars.<br>
+</p>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;cat sim_vals_exemp.NA | grep '=1' | wc -l<br></span></pre>
+To count the number of singletons in the cluster<span class="pln"></span><br>
+<pre class="prettyprint"><span class="pun">  &gt;cat sim_vals_clust.NA | grep 'CLUST_0' | wc -l<br></span></pre>
+The sequences that have been selected to be exemplars are those where
+the sequence id is equal to the cluster id. This can be identifed in a
+simple SQL search.<br>
+<br>
+<h2><a class="mozTocH3" name="mozTocId230287"></a><a name="ap_r"></a>B.
+Affinity Propagation Clustering Procedure
+in R<br>
+</h2>
+The <a href="http://www.r-project.org/">R statistical programming
+language</a> is a language and environment for statistical computing
+and graphics. It is a free and open source language that allows users
+to write their own functions and modules to expand the basic R package.
+I have written an implementation of Affinity Propagation in R. This is
+an alternative to the Matlab code discussed above. The current version
+of the R code is written entirely in R and does not take adavantage of
+a sparse matrix approach or make use of compiled code. This will make
+the R implementation slower then the Matlab code above, however this
+code does not require you buy a license for Matlab. Also, the affinity
+propagation code in Matlab requires a three column format with
+sequences labeled as integers. The R code allows for a more flexible
+input format and can accept matrices as input, a three column file
+labeled with integers or text, and even single vectors that can be used
+to generate distance matrices. <br>
+<br>
+The R code is still a work in progess, and does require you to work
+with the source code directly to use it. Also, since it does not take
+advantage of sparse matrices, this can only be used for small to medium
+sized datasets.<br>
+<br>
+Required Programs:<br>
+<ul>
+  <li>R<br>
+R is a free open source program available for all platforms at: <a
+ href="http://www.r-project.org/">http://www.r-project.org/</a><br>
+  </li>
+  <li>apcluster.r<br>
+This code is available from the repminer homepage at: <span
+ style="text-decoration: underline;"><br>
+    </span></li>
+</ul>
+Input Files:<br>
+<ul>
+  <li>sim_vals.txt<br>
+A three column, tab delimited text file describing the similarity
+relationship between the sequences
+that you are clustering. This can be produced for BLAST output for DNA
+sequence data using
+the repminer program cnv_blast2sim.pl. <br>
+  </li>
+</ul>
+<ul>
+  <li>pref_vals.txt<br>
+A single column input file. There should be a single value for each
+sequence object in your database. This input file is optional since
+preference values can be set&nbsp; </li>
+</ul>
+<br>
+First, move the input file you want to analyze into the same directory
+that your apcluster.r program file is in. This step is not completely
+necessary, but it will make it easier to run the program since you just
+have to use the file name and not the full file path.<br>
+<br>
+The way that this program is currently written, you will need to modify
+the program variables directly in the R code itself. The best way to do
+this is to open the program in text editor on your host machine. Text
+editor options on linux and unix machens include pico, emacs, and vim
+as well as many other. I prefer emacs so I would use:<br>
+<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;emacs apcluster.r</span></pre>
+The variables to modify are:<br>
+<ul>
+  <li>inFile - The location of the intput file to analyze. <br>
+  </li>
+  <li>testDamp - The damping factor<br>
+  </li>
+  <li>testConvits - The maxinum number of iterations to run the ap
+algorithm after putative convergence.<br>
+  </li>
+  <li>testMaxits - The maximum number of iterations to run the ap
+algorithm<br>
+  </li>
+</ul>
+These variables appear at the top of the aplcuster.r text in the
+following format. <br>
+<pre class="prettyprint"><span class="pln"> inFile= "ltr_ltr_5k_b250.txt";          # PATH TO THE INPUT FILE<br>                                               <br> testDamp &lt;- 0.96;                       # DAMPING FACTOR                          <br> testConvits &lt;- 100;                     # CONVERGENCE ITERATIONS                   <br> testMaxits &lt;- 2000;                     # NUMBER OF ITERATIONS   </span><span
+ class="pun"><br></span></pre>
+Once the variables have been set, start the R programming language by
+simply typing R at the command line.<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;R</span><span class="pln"><br></span></pre>
+To lauch the apcluster program, type source("acpluster.r") at the R
+command line. <br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;source("apcluster.r")</span></pre>
+In systems that allow for graphical results, you will see a graph of
+the net similarity value as it approaches convergence. This graph will
+also allow you to see . The program result will be stored in the object
+named myAnswer. This result includes the following parts:<br>
+<ul>
+  <li><span style="font-weight: bold;">summary</span><br>
+The summary of the affinity propagation run. This is a four column
+matrix that includes</li>
+  <ul>
+    <li>iteration number</li>
+    <li>net similarity value</li>
+    <li>number of clusters</li>
+    <li><span style="color: red;">I don't remember what the 4th column
+is supposed to contain. I probably mean to put something here, but it
+is currently set to null.</span><br>
+    </li>
+  </ul>
+  <li><span style="font-weight: bold;">labels</span><br>
+The names assigned to the individual sequences.<br>
+  </li>
+  <li><span style="font-weight: bold;">netsimilarity</span><br>
+The final net similarity value<br>
+  </li>
+  <li><span style="font-weight: bold;">index</span><br>
+For each sequence this returns the index value for the sequence that
+the exemplar for<br>
+  </li>
+  <li><span style="font-weight: bold;">preferences</span><br>
+This is the single value or vector of values that was used as the
+preference value in the analysis.<br>
+  </li>
+  <li><span style="font-weight: bold;">time</span><br>
+A vector of values describing the total time that the program took to
+run.<br>
+  </li>
+  <li><span style="font-weight: bold;">exemplars</span><br>
+A vector of index values of the sequences that are the exemplars for
+the dataset.<br>
+  </li>
+  <li><span style="font-weight: bold;">iterations</span><br>
+The number of iterations that the apcluster program ran before
+convergence was reached. If convergence was not reached, this will
+return the maximum number of iterations.<br>
+  </li>
+  <li><span style="font-weight: bold;">cluster</span><br>
+The number of clusters that the data were assigned to<br>
+  </li>
+</ul>
+To access an individual part of the myAnswer object, type the object
+name followed by the object part you want to return. The following
+command will return the ids for just the exmplar sequences.<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;myAnswer$exemplars<br></span></pre>
+To export the results stored in 'index' to an output text file, you
+would type:<br>
+<pre class="prettyprint"><span class="pun"> &gt;write.table (myAnswer$index, "sim_vals_result.txt", row.names=FALSE, col.names=FALSE)</span></pre>
+This will result in a single column text file, sim_vals_result.txt that
+will list the index values for each input file. This file can be used
+with cnv_ap2na.pl program to convert this to a format that can be
+visualized with the Cytoscape program. <br>
+<pre class="prettyprint"><span class="pun"> &gt;cnv_ap2na.pl -i sim_vals_result.txt<br>                -o sim_vals_clust.NA<br></span><span
+ class="pun">                -x sim_vals_exemp.NA</span><br><span
+ class="pun">                -e sim_vals_edge.EA</span><br>                --header<span
+ class="pun"> SIM_VALS_CLUSTERS<br></span>                --ex-header<span
+ class="pun"> SIM_VALS_EXEMPLARS</span><br>                --header<span
+ class="pun"> SIM_VALS_EDGES</span> <br></pre>
+To quit R, type q() at the R command line and you will be returned to
+your standard unix shell.<br>
+<pre class="prettyprint"><span class="pln">&nbsp;</span><span
+ class="pun"> &gt;q()</span></pre>
+<span style="font-weight: bold; color: red;"></span>
+In the future, I will also be developing an R command line version of
+this script that takes these options at the command line to facilitate
+using this function from the standard unix command line.
+<h1><a class="mozTocH2" name="mozTocId614497"></a><a name="clust_mcl"></a>V.
+Clustering with MCL</h1>
+The MCL Program program can be used to cluster sequences into groups.
+This
+program clusters individual sequences around attractors. Although not
+necessarily the best descriptions of the central tendancies of the MCL
+clusters, these attractors can be used to generate 'exemplar like'
+datasets. The text file used for input is the sim_vals.txt files used
+in the affinity propagation based clustering above. This is a three
+column text file that gives the query sequence id in column one, hit
+sequence id in column two, and the score of the hit in column three.
+You can convert this three column text file into the native graph file
+used by MCL, and then use the native MCL graph file is all subsequent
+MCL runs.<br>
+<br>
+The following command uses the Inflation value of 2.0 and the scheme 7.
+The STDOUT text is directed to the text file sim_vals.std using '1&gt;'
+and the STDERR text output is directed to the text file sim_vals.err
+using
+'2&gt;'.<br>
+<pre class="prettyprint"><span class="pun"> &gt;mcl sim_vals.graph -I 2.0 -scheme 7 --output-limit=y <br>      -o sim_vals_2_7.mcl 1&gt;sim_vals.std 2&gt;sim_vals.err<br></span></pre>
+The clm program can be used to extract information about the resulting
+graph. These values can be used to select nodes other then the
+attractor of the cluster to serve as the exemplar for that cluster.<br>
+<pre class="prettyprint"><span class="pun"> &gt;clm info --node-all-measures sim_vals.graph sim_vals_2_7.mcl &gt; sim_vals_2_7.cpm<br></span></pre>
+When using the attractors as the exemplar for the mcl cluster, the
+mcxdump program can be used to map the individual sequences to the
+sequences that serves as the exemplar for that sequence.<br>
+<br>
+<pre class="prettyprint"><span class="pun"> &gt;mcxdump -imx sim_vals_2_7.mcl-limit -tab sim_vals.tab &gt; sim_vals_2_7.n2a</span></pre>
+The MCL results will also need to be converted to a parsable form using
+the mcxdump program.<br>
+<pre class="prettyprint"><span class="pun"> &gt;mcxdump -imx sim_vals_2_7.mcl -tabr sim_vals.tab &gt; sim_vals_2_7.mcl.convert</span></pre>
+Extracting Results from the STDERR FILES<br>
+<br>
+The STDERR files were shown above to be stored in the *.err file. The
+number of clusters, the time taken to&nbsp; run the program and other
+useful results can be extracted from these files using the
+cnv_mclerr2tab.pl program.<br>
+<pre class="prettyprint"><span class="pun"> &gt;cnv_mclerr2tab.pl -i indir/ -o outfile.txt</span></pre>
+<br>
+<span style="font-weight: bold;">Standard File Extensions</span><br>
+All of the above files use standard extensions so that multiple results
+can be easily identified. This is very helpful when looking at the
+results of multiple MCL runs using multiple parameter sets.<br>
+<pre class="prettyprint"><span class="pun">*.graph -- The similarity matrix in the native MCL graph format<br>*.tab -- The node labels in the MCL tab format<br>*.n2a -- Maps the node ids to the attractor ids<br>*.ccl -- Connected components output in the native MCL format<br>*.ccl.txt -- Connected components output in the translated text format<br>*.mcl -- The MCL clustering results in the native MCL format<br>*.mcl.convert -- The MCL clustering results in a labeled txt format</span></pre>
+<h1><a class="mozTocH3" name="mozTocId105856"></a><span
+ style="font-weight: bold;">VI. Connected Components Clustering</span></h1>
+The MCL also comes with the ability to determine the connected
+components
+within a graph.<br>
+<pre class="prettyprint"><span class="pun"> &gt;clm close -imx sim_vals.graph -write-cc sim_vals.ccl</span></pre>
+This result will also need to be converted to a more easily usable
+format using the maxdump command<br>
+<pre class="prettyprint"><span class="pun"> &gt;mcxdump -imx sim_vals.ccl -tabr sim_vals.tab -o sim_vals.ccl.txt<br></span></pre>
+It is also possible to do connected components clustering using perl
+based tools in the repminer package.<br>
+<br>
+<span style="font-weight: bold; color: red;">TO DO DISCUSS REPMINER
+PERL BASED TOOLS TO DO CONNECTED COMPONENTS CLUSTERING.</span><br>
+<a class="mozTocH2" name="mozTocId409097"></a>
+<h1>VII. Determining the
+Masking Efficacy of an Exemplar Set</h1>
+It may be useful to split the input sequence file into multiple fasta
+files for masking in a cluster environment. This can be done using the
+fasta_split.pl program. <span style="font-weight: bold; color: red;">THIS
+IS CURRENTLY IN THE jperl SUITE OF
+PROGRAMS AND SHOULD BE MOVED TO REPMINER</span><br>
+<pre class="prettyprint"><span class="pun"> &gt;fasta_split big_fasta_file.fasta 16 short_file</span></pre>
+The above command will split the fasta file named big_fasta_file.fasta
+into 16 individual files. These files will all be name
+root_name###.fasta where ### is a padded number 001 to 0016. NOTE: I
+NEED TO MAKE PADDING AN OPTION. Naming the output files without padding
+faciliates using the fasta files in quick and dirty unix shell scripts.<br>
+<br>
+Given an exemplar set as 'exemplars.fasta', The general format for
+masking with RepeatMasker on a dual processor machine using the wublast
+engine is:<br>
+<pre class="prettyprint"><span class="pun"> &gt;RepeatMasker -lib exemplars.fasta -pa 2 -engine wublast -xsmall short_file1.fasta</span></pre>
+This can be done for each of the 16 short files created above. All of
+the RepeatMasker output files will be stored in the same directory as
+the input fasta file. Therefore, if you are going to be testing
+multiple exemplar sets, you will need to create a separate directory
+containing the fasta files to mask for each of your exemplar sets.<br>
+<br>
+When the RepeatMasker program has finished, the fasta_countmask.pl
+program can count the number and percent of bases in a FASTA format
+sequence file that have been masked. This value of percent masked is
+more accurate then the values reported my RepeatMasker. RepeatMasker
+includes overlaps, and thus the masked percent can sum to more then
+100%. I therefore wrote a simple perl script to determine the percent
+of sequences masked in a set of masked files. This program accepts
+pipes, so the unix cat command can be used to pipe all of the masked
+files at once into the fasta_countmask.pl program.<br>
+<pre class="prettyprint"><span class="pun"> &gt;cat *.masked | fasta_countmask.pl</span></pre>
+The above program will return the number of masked characters, the
+total number of sequence characters, and the ratio of characters that
+have been masked are returned to STDOUT. In the following format:<br>
+<pre class="prettyprint"><span class="pun">Masked:	120316991<br>Total:	123009216<br>Ratio:	0.978113631746096<br></span></pre>
+This indicates that 120,316,991 of 123,009,216 characters in the input
+file were masked. The ratio of masked sequences is therfore 0.9781 or
+97.81%.<br>
+<br>
+This program can also return masking statistics for the individual
+sequence
+files. This is done by using the --full switch to generate the full
+results. These can be sent to an outfile using the -o switch.<br>
+<pre class="prettyprint"><span class="pun"> &gt;cat *.masked | fasta_countmask.pl --full -o mask_summary.txt</span></pre>
+This will generate a four column, tab delimited text file that gives
+the summary information for each sequence file:<br>
+<ol>
+  <li>Sequence Id</li>
+  <li>Number of Masked Bases</li>
+  <li>Total number of bases in the sequence</li>
+  <li>Ratio of bases that were masked</li>
+</ol>
+This full output file can be used with external applications to
+generate
+summary statistics for the masking based on the individual sequence
+records.<br>
+<span style="font-weight: bold;"></span><br>
+Do a data dump from a database to get the exemplars from a larger
+dataset, and then convert these to a tab delim text file. To convert
+these to fasta format use the cnv_tab2fasta.pl program.<br>
+<pre class="prettyprint"><span class="pun"> &gt;cnv_tab2fasta.pl -i infile.txt -o outfile.fasta<br></span></pre>
+<span style="font-weight: bold;"></span>
+<h1><a class="mozTocH2" name="mozTocId754158"></a>Additional Tools</h1>
+Althought not core components of RepMiner, the following tools were
+written to meet specific needs throughout the development of this
+program.<br>
+<br>
+<a style="font-weight: bold;"
+ href="http://repminer.svn.sourceforge.net/viewvc/repminer/trunk/scripts/cnv_fasta2md5sum.pl">cnv_fasta2md5sum.pl</a><br>
+<div style="margin-left: 40px;">This generates a list of <a
+ href="http://en.wikipedia.org/wiki/Md5sum">md5sums</a>
+for the sequence strings from a fasta file. This md5sum is a way to
+distill the entire DNA sequence string into a shorter string of numbers
+and characters that can be used to see if a sequence is uniqune in a
+database. The result is a tab delimited text file listing the sequence
+id and the md5sum.<br>
+</div>
+<pre style="margin-left: 40px;" class="prettyprint"><span class="pun"> &gt;cnv_fasta2md5sum.pl -i infile.fasta -o md5list.txt</span></pre>
+<br>
+<h1><a class="mozTocH3" name="mozTocId629196"></a>References</h1>
+<ul>
+</ul>
+<ol>
+  <li>Brohee, S. and J. van Helden (2006). "Evaluation of clustering
+algorithms for protein-protein interaction networks." BMC
+Bioinformatics 7: 488.<br>
+  </li>
+  <li>Dongen, S. M. v. (2000). Graph Clustering by Flow Simulation.
+Centre for Mathematics and Computer Science (CWI). Amsterdam,
+University of Utrecht. PhD: 169.</li>
+  <li>Enright, A. J., S. Van Dongen, et al. (2002). "An efficient
+algorithm for large-scale detection of protein families." Nucleic Acids
+Res 30(7): 1575-84.<br>
+  </li>
+  <li>Frey, B. J. and D. Dueck (2007). "Clustering by passing messages
+between data points." Science 315(5814): 972-6. [<a
+ href="http://www.psi.toronto.edu/affinitypropagation/FreyDueckScience07.pdf">PDF</a>]</li>
+  <li>Frey, B. J. and D. Dueck (2008). "Response to comment on
+"clustering by passing messages between data points"." Science
+319(5864): -.</li>
+  <li>Koenker, R. and P. Ng (2008). SparseM: A Sparse Matrix Package
+for R.<br>
+  </li>
+</ol>
+<ul>
+</ul>
+<hr>
+<table style="border-collapse: collapse;" id="AutoNumber2" border="0"
+ bordercolor="#111111" cellpadding="0" cellspacing="0" width="100%">
+  <tbody>
+    <tr>
+      <td width="50%"><i>Contact: <a
+ href="http://jestill.myweb.uga.edu">James
+Estill</a><br>
+Last Updated: November, 3 2008<!--webbot bot="Timestamp" i-checksum="60193" endspan --></i></td>
+      <td width="50%"> <br>
+      </td>
+      <td width="50%">
+      <p> <a href="http://sourceforge.net/"> <img
+ src="ap_cluster_files/sflogo.png" alt="SourceForge.net Logo" border="0"
+ height="62" width="210"> </a> </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script src="ap_cluster_files/ga.js" type="text/javascript"></script>
+<script type="text/javascript">
+var pageTracker = _gat._getTracker("UA-3163301-1");
+pageTracker._initData();
+pageTracker._trackPageview();
+</script>
+</body>
+</html>
