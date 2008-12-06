@@ -1,0 +1,338 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>cnv_blast2sim.pl</title>
+<link rel="stylesheet" href="http://repminer.sourceforge.net/css/repminer_man.css" type="text/css" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
+</head>
+
+<body>
+<table border="0" width="100%" cellspacing="0" cellpadding="3">
+<tr><td class="block" valign="middle">
+<big><strong><span class="block">&nbsp;cnv_blast2sim.pl</span></strong></big>
+</td></tr>
+</table>
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#version">VERSION</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<ul>
+
+		<li><a href="#usage">Usage</a></li>
+		<li><a href="#commonly_used_arguments">Commonly Used Arguments</a></li>
+	</ul>
+
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#commonly_used_arguments">COMMONLY USED ARGUMENTS</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#examples">EXAMPLES</a></li>
+	<li><a href="#diagnostics">DIAGNOSTICS</a></li>
+	<li><a href="#configuration_and_environment">CONFIGURATION AND ENVIRONMENT</a></li>
+	<li><a href="#dependencies">DEPENDENCIES</a></li>
+	<ul>
+
+		<li><a href="#required_software">Required Software</a></li>
+		<li><a href="#required_perl_modules">Required Perl Modules</a></li>
+	</ul>
+
+	<li><a href="#bugs_and_limitations">BUGS AND LIMITATIONS</a></li>
+	<ul>
+
+		<li><a href="#bugs">Bugs</a></li>
+		<li><a href="#limitations">Limitations</a></li>
+	</ul>
+
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#license">LICENSE</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#history">HISTORY</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>cnv_blast2sim.pl - Convert BLAST report to similarity file</p>
+<p>
+</p>
+<hr />
+<h1><a name="version">VERSION</a></h1>
+<p>This documentation refers to cnv_blast2sim.pl version $Rev: 71 $</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>
+</p>
+<h2><a name="usage">Usage</a></h2>
+<pre>
+    cnv_blast2sim.pl -i BlastOutput.bln -o SimFile.txt</pre>
+<p>
+</p>
+<h2><a name="commonly_used_arguments">Commonly Used Arguments</a></h2>
+<pre>
+    -i, --infile    # Path to the input file to parse
+    -o, --outfile   # Path to the output similarity file
+    -b, --blast-opt # Blast data to use for similairty metric</pre>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>Extract blast -m8 or -m9 output to a simple three column
+similarity file. This output file is a tab delimited
+text file that can be easily imported into a SQL database
+or used as an input file for clustering.
+As part of the process this script also parses the
+RepMiner header format and returns the unique identifier
+number from the fasta header.</p>
+<p>
+</p>
+<hr />
+<h1><a name="commonly_used_arguments">COMMONLY USED ARGUMENTS</a></h1>
+<dl>
+<dt><strong><a name="item__2di_2c_2d_2dinfile">-i,--infile</a></strong>
+
+<dd>
+<p>Path of the BLAST file to be parsed. If no infile argument is used
+the program will attempt to parse from STDIN.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2do_2c_2d_2doutfile">-o,--outfile</a></strong>
+
+<dd>
+<p>Path of the output file. If not outfile arugment is used, the program
+will send data to standard output.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2db_2c__2d_2dblast_2dopt">-b, --blast-opt</a></strong>
+
+<dd>
+<p>Number indicating the option used to extract a similarity
+score from a BLAST result. Valid arguments are:</p>
+</dd>
+<ol>
+<li>
+<p>Use the BITSCORE of the best HSP.</p>
+</li>
+<li>
+<p>Use a tiled BITSCORE value. This is the default option.</p>
+</li>
+<li>
+<p>Use the significance value of the best HSP. 
+THIS OPTION IS NOT CURRENTLY IMPLEMENTED.</p>
+</li>
+<li>
+<p>Use a tiled significance value</p>
+</li>
+</ol>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="options">OPTIONS</a></h1>
+<dl>
+<dt><strong><a name="item__2d_2dlogfile">--logfile</a></strong>
+
+<dd>
+<p>Path to a file that will be used to log program status.
+If the file already exists, additional information will be concatenated
+to the existing file.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dusage">--usage</a></strong>
+
+<dd>
+<p>Short overview of how to use program from command line.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dhelp">--help</a></strong>
+
+<dd>
+<p>Show program usage with summary of options.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dversion">--version</a></strong>
+
+<dd>
+<p>Show program version.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dman">--man</a></strong>
+
+<dd>
+<p>Show the full program manual. This uses the perldoc command to print the 
+POD documentation for the program.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dverbose">--verbose</a></strong>
+
+<dd>
+<p>Run the program with maximum output.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dq_2c_2d_2dquiet">-q,--quiet</a></strong>
+
+<dd>
+<p>Run the program with minimal output.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dtest">--test</a></strong>
+
+<dd>
+<p>Run the program without doing the system commands.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="examples">EXAMPLES</a></h1>
+<p>If you have a BLAST file in the -m 8 aligment format, this can be used as input
+for the cnv_blast2sim.pl program. The following example shows converting
+a BLAST report (blast_result.bln) to a similarity matrix (sim_matrix.txt).</p>
+<pre>
+ cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt</pre>
+<p>By default, this will use a tiled bitscore as the metric of similarity.
+You may also select to report just the bitscore for the best HSP from
+an aligment between two sequence records. Using the same BLAST report
+this command would be</p>
+<pre>
+ cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt</pre>
+<p>The output from BLAST can be passed directly to this parser using pipes. 
+The following example shows using the cnv_blast2sim.pl with default parameters.
+The output will be printed to STDOUT. Using a fasta file (seqs.fasta) and the 
+BLAST formatted database of this file (myDB), the command to run BLAST using
+blastn follows.</p>
+<pre>
+ blastall -m 8 -p blastn -i seqs.fasta -d myDB | cnv_blast2sim.pl</pre>
+<p>The output file path (sim.txt) can be specified with the -o option as</p>
+<pre>
+ blastall -m 8 -p blastn -i seqs.fasta -d myDB | cnv_blast2sim.pl -o sim.txt</pre>
+<p>
+</p>
+<hr />
+<h1><a name="diagnostics">DIAGNOSTICS</a></h1>
+<p>Error messages generated by this program and possible solutions are listed
+below.</p>
+<dl>
+<dt><strong><a name="item_program_does_not_appear_to_be_doing_anything">Program does not appear to be doing anything</a></strong>
+
+<dd>
+<p>It is possible that the program is waiting for input from STDIN.
+Run with the --verbose mode.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="configuration_and_environment">CONFIGURATION AND ENVIRONMENT</a></h1>
+<p>This script does not make use of external configuration files
+or any options in the user environment.</p>
+<p>
+</p>
+<hr />
+<h1><a name="dependencies">DEPENDENCIES</a></h1>
+<p>
+</p>
+<h2><a name="required_software">Required Software</a></h2>
+<ul>
+<li><strong><a name="item_ncbi_blastall">NCBI blastall</a></strong>
+
+<p>The latest version of the NCBI blastall program can be downloaded from:
+<a href="ftp://ftp.ncbi.nih.gov/blast/executables/LATEST">ftp://ftp.ncbi.nih.gov/blast/executables/LATEST</a></p>
+</li>
+</ul>
+<p>
+</p>
+<h2><a name="required_perl_modules">Required Perl Modules</a></h2>
+<ul>
+<li><strong><a name="item_bio_3a_3asearchio">Bio::SearchIO</a></strong>
+
+<p>This module is part of bioperl and is required to parse BLAST
+output in a format that is tiled across all HSPs.</p>
+</li>
+<li><strong><a name="item_getopt_3a_3along">Getopt::Long</a></strong>
+
+<p>This module is required to accept options at the command line.</p>
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="bugs_and_limitations">BUGS AND LIMITATIONS</a></h1>
+<p>
+</p>
+<h2><a name="bugs">Bugs</a></h2>
+<ul>
+<li><strong><a name="item_no_bugs_currently_known">No bugs currently known</a></strong>
+
+<p>If you find a bug with this software, file a bug report on the RepMiner
+Sourceforge website: <a href="http://sourceforge.net/tracker/?group_id=192812">http://sourceforge.net/tracker/?group_id=192812</a></p>
+</li>
+</ul>
+<p>
+</p>
+<h2><a name="limitations">Limitations</a></h2>
+<ul>
+<li><strong><a name="item_limited_to_m8_or_m9_blast_format">Limited to m8 or m9 BLAST format</a></strong>
+
+<p>This script is designed to be a lean and fast parser of the 
+similarity information from BLAST. It is therefore limited
+to using the simple m8 or m9 BLAST alignment format.</p>
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The cnv_blast2sim.pl program is part of the repminer package of 
+repeat element annotation programs.
+See the DAWG-PAWS web page 
+( <a href="http://repminer.sourceforge.net/">http://repminer.sourceforge.net/</a> )
+or the Sourceforge project page 
+( <a href="http://sourceforge.net/projects/repminer/">http://sourceforge.net/projects/repminer/</a> )
+for additional information about this package.</p>
+<p>
+</p>
+<hr />
+<h1><a name="license">LICENSE</a></h1>
+<p>GNU GENERAL PUBLIC LICENSE, VERSION 3</p>
+<p><a href="http://www.gnu.org/licenses/gpl.html">http://www.gnu.org/licenses/gpl.html</a></p>
+<p>THIS SOFTWARE COMES AS IS, WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY. USE AT YOUR OWN RISK.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>James C. Estill &lt;JamesEstill at gmail.com&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="history">HISTORY</a></h1>
+<p>STARTED: 02/24/2008
+
+</p>
+<p>UPDATED: 12/06/2008
+
+</p>
+<p>VERSION: $Rev: 71 $
+
+</p>
+<table border="0" width="100%" cellspacing="0" cellpadding="3">
+<tr><td class="block" valign="middle">
+<big><strong><span class="block">&nbsp;cnv_blast2sim.pl</span></strong></big>
+</td></tr>
+</table>
+
+</body>
+
+</html>
