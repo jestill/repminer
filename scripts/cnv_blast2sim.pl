@@ -397,7 +397,7 @@ This documentation refers to cnv_blast2sim.pl version $Rev$
 
     cnv_blast2sim.pl -i BlastOutput.bln -o SimFile.txt
 
-=head2 Commonly Used Arguments
+=head2 Required Arguments
 
     -i, --infile    # Path to the input file to parse
     -o, --outfile   # Path to the output similarity file
@@ -413,7 +413,7 @@ As part of the process this script also parses the
 RepMiner header format and returns the unique identifier
 number from the fasta header.
 
-=head1 COMMONLY USED ARGUMENTS
+=head1 REQUIRED ARGUMENTS
 
 =over 2
 
@@ -500,26 +500,27 @@ Run the program without doing the system commands.
 
 If you have a BLAST file in the -m 8 aligment format, this can be used as input
 for the cnv_blast2sim.pl program. The following example shows converting
-a BLAST report (blast_result.bln) to a similarity matrix (sim_matrix.txt).
+a BLAST report (blast_result.bln) to a similarity matrix (sim_matrix.txt):
 
  cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt
 
 By default, this will use a tiled bitscore as the metric of similarity.
 You may also select to report just the bitscore for the best HSP from
-an aligment between two sequence records. Using the same BLAST report
-this command would be
+an aligment between two sequence records using the -b 1 options. 
+Using the same blast_result.bln report this command would be:
 
- cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt
+ cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt -b 1
 
 The output from BLAST can be passed directly to this parser using pipes. 
 The following example shows using the cnv_blast2sim.pl with default parameters.
 The output will be printed to STDOUT. Using a fasta file (seqs.fasta) and the 
 BLAST formatted database of this file (myDB), the command to run BLAST using
-blastn follows.
+blastn follows:
 
  blastall -m 8 -p blastn -i seqs.fasta -d myDB | cnv_blast2sim.pl
 
-The output file path (sim.txt) can be specified with the -o option as
+The output file path (sim.txt) can be specified with the -o option as shown
+below:
 
  blastall -m 8 -p blastn -i seqs.fasta -d myDB | cnv_blast2sim.pl -o sim.txt
 

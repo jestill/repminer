@@ -32,10 +32,7 @@
 #     http://www.chaosreigns.com/code/springgraph/
 #
 
-
-# Set the package name to RepMiner
-
-package RepMiner;
+package REPMINER;
 
 print STDERR "The RepMiner jabablast program has started\n";
 
