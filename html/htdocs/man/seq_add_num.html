@@ -1,0 +1,327 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>seq_add_num.pl</title>
+<link rel="stylesheet" href="http://repminer.sourceforge.net/css/repminer_man.css" type="text/css" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
+</head>
+
+<body>
+<table border="0" width="100%" cellspacing="0" cellpadding="3">
+<tr><td class="block" valign="middle">
+<big><strong><span class="block">&nbsp;seq_add_num.pl</span></strong></big>
+</td></tr>
+</table>
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#version">VERSION</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<ul>
+
+		<li><a href="#usage">Usage</a></li>
+		<li><a href="#required_arguments">Required Arguments</a></li>
+	</ul>
+
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#required_arguments">REQUIRED ARGUMENTS</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#examples">EXAMPLES</a></li>
+	<ul>
+
+		<li><a href="#typical_use">Typical Use</a></li>
+		<li><a href="#specify_seq_number_starting_point">Specify Seq Number Starting Point</a></li>
+		<li><a href="#alternatives_to_fasta_file_format">Alternatives to FASTA File Format</a></li>
+	</ul>
+
+	<li><a href="#diagnostics">DIAGNOSTICS</a></li>
+	<li><a href="#configuration_and_environment">CONFIGURATION AND ENVIRONMENT</a></li>
+	<li><a href="#dependencies">DEPENDENCIES</a></li>
+	<ul>
+
+		<li><a href="#required_perl_modules">Required Perl Modules</a></li>
+	</ul>
+
+	<li><a href="#bugs_and_limitations">BUGS AND LIMITATIONS</a></li>
+	<ul>
+
+		<li><a href="#bugs">Bugs</a></li>
+		<li><a href="#limitations">Limitations</a></li>
+	</ul>
+
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#license">LICENSE</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#history">HISTORY</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="version">VERSION</a></h1>
+<p>This documentation refers to seq_add_num.pl version $Rev$</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>
+</p>
+<h2><a name="usage">Usage</a></h2>
+<pre>
+    cnv_add_num.pl -i infile.fasta -o outfile_num.fasta</pre>
+<p>
+</p>
+<h2><a name="required_arguments">Required Arguments</a></h2>
+<pre>
+    -i, --infile    # Path to the input file to add prefix integer to
+    -o, --outfile   # Path to the output file</pre>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>Add a number prefix to the id line from a fasta file
+to allow for easy parsing of fasta sequences. The process
+also provides each sequence with a unique incremental
+id that can be used for reference. Although designed
+to work with fasta format files, any bioperl valid
+sequence file format may be used for input or export.</p>
+<p>
+</p>
+<hr />
+<h1><a name="required_arguments">REQUIRED ARGUMENTS</a></h1>
+<dl>
+<dt><strong><a name="item__2di_2c_2d_2dinfile">-i,--infile</a></strong>
+
+<dd>
+<p>Path of the sequence file to add the prefix to the id.
+If no input file argument is used, the program will attempt to read from STDIN.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2do_2c_2d_2doutfile">-o,--outfile</a></strong>
+
+<dd>
+<p>Path of the output file. If not outfile arugment is used, the program
+will send data to standard output.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="options">OPTIONS</a></h1>
+<dl>
+<dt><strong><a name="item__2d_2din_2dformat">--in-format</a></strong>
+
+<dd>
+<p>The file format of the sequence to prepend a sequence ID to. Be default the
+program will expect sequenced to be in the fasta format, however any
+valid sequence format accpeted by bioperl may be used.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dout_2dformat">--out-format</a></strong>
+
+<dd>
+<p>The file format of the output sequence file. Be default, fasta format files
+will be produced, but any file format acceptable by bioperl may be used.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dusage">--usage</a></strong>
+
+<dd>
+<p>Short overview of how to use program from command line.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dhelp">--help</a></strong>
+
+<dd>
+<p>Show program usage with summary of options.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dversion">--version</a></strong>
+
+<dd>
+<p>Show program version.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dman">--man</a></strong>
+
+<dd>
+<p>Show the full program manual. This uses the perldoc command to print the 
+POD documentation for the program.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dverbose">--verbose</a></strong>
+
+<dd>
+<p>Run the program with maximum output.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dq_2c_2d_2dquiet">-q,--quiet</a></strong>
+
+<dd>
+<p>Run the program with minimal output.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="examples">EXAMPLES</a></h1>
+<p>
+</p>
+<h2><a name="typical_use">Typical Use</a></h2>
+<p>To use the program to parse a fasta format file to a fasta format file
+where the headers have unique integers as a prefix:</p>
+<pre>
+ seq_add_num.pl -i infile.fasta -o out_num.fasta</pre>
+<p>This will add an integer to the header files such that the following headers:</p>
+<pre>
+ &gt;seq_one
+ ATGT...
+ &gt;seq_two
+ ATGT..</pre>
+<p>Would be modified to:</p>
+<pre>
+ &gt;1|seq_one
+ ATGT...
+ &gt;2|seq_two
+ ATGT...</pre>
+<p>This will assure that in future analysis, all sequence records will have
+a single unique integer assigned to that sequence.</p>
+<p>
+</p>
+<h2><a name="specify_seq_number_starting_point">Specify Seq Number Starting Point</a></h2>
+<p>It is also possible to specify where the integer should begin incrementing
+from. This is useful when you want to combine sequence from two 
+separate files, but want the combined sequence records to
+have unique identifiers. For example the command:</p>
+<pre>
+ seq_add_num.pl -i infile.fasta -o out_num.fasta --start-num 76</pre>
+<p>would modify the seuqence headers to:</p>
+<pre>
+ &gt;76|seq_one
+ ATGT...
+ &gt;77|seq_two
+ ATGT...</pre>
+<p>
+</p>
+<h2><a name="alternatives_to_fasta_file_format">Alternatives to FASTA File Format</a></h2>
+<p>It is also possible to use sequence records that are not in the
+FASTA file format. The following command will convert a genbank format
+file to a fasta format file with integer prefixes starting at one.</p>
+<pre>
+ seq_add_num.pl -i infile.gb --in-format genbank -o out_num.fasta</pre>
+<p>The program assumes that you want the output in FASTA file format, so
+it is not necessary to specify FASTA format for output.</p>
+<p>
+</p>
+<hr />
+<h1><a name="diagnostics">DIAGNOSTICS</a></h1>
+<p>Error messages generated by this program and possible solutions are listed
+below.</p>
+<dl>
+<dt><strong><a name="item_program_does_not_appear_to_be_doing_anything">Program does not appear to be doing anything</a></strong>
+
+<dd>
+<p>It is possible that the program is waiting for input from STDIN.
+Run with the --verbose mode.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="configuration_and_environment">CONFIGURATION AND ENVIRONMENT</a></h1>
+<p>This script does not make use of external configuration files
+or any options in the user environment.</p>
+<p>
+</p>
+<hr />
+<h1><a name="dependencies">DEPENDENCIES</a></h1>
+<p>
+</p>
+<h2><a name="required_perl_modules">Required Perl Modules</a></h2>
+<ul>
+<li><strong><a name="item_bio_3a_3aseqio">Bio::SeqIO</a></strong>
+
+<p>This module is part of bioperl and is required to read and write
+sequence records in multiple formats.</p>
+</li>
+<li><strong><a name="item_getopt_3a_3along">Getopt::Long</a></strong>
+
+<p>This module is required to accept options at the command line.</p>
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="bugs_and_limitations">BUGS AND LIMITATIONS</a></h1>
+<p>
+</p>
+<h2><a name="bugs">Bugs</a></h2>
+<ul>
+<li><strong><a name="item_no_bugs_currently_known">No bugs currently known</a></strong>
+
+<p>If you find a bug with this software, file a bug report on the RepMiner
+Sourceforge website: <a href="http://sourceforge.net/tracker/?group_id=192812">http://sourceforge.net/tracker/?group_id=192812</a></p>
+</li>
+</ul>
+<p>
+</p>
+<h2><a name="limitations">Limitations</a></h2>
+<ul>
+<li><strong><a name="item_long_sequence_header_information_may_be_lost">Long sequence header information may be lost</a></strong>
+
+<p>This program will only use the portion of the fasta header that is
+considered to be the primary id. The unique integer will be prepened
+to the primary id, and this will be used as the new id.</p>
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The seq_add_num.pl program is part of the repminer package of 
+repeat element annotation programs.
+See the DAWG-PAWS web page 
+( <a href="http://repminer.sourceforge.net/">http://repminer.sourceforge.net/</a> )
+or the Sourceforge project page 
+( <a href="http://sourceforge.net/projects/repminer/">http://sourceforge.net/projects/repminer/</a> )
+for additional information about this package.</p>
+<p>
+</p>
+<hr />
+<h1><a name="license">LICENSE</a></h1>
+<p>GNU GENERAL PUBLIC LICENSE, VERSION 3</p>
+<p><a href="http://www.gnu.org/licenses/gpl.html">http://www.gnu.org/licenses/gpl.html</a></p>
+<p>THIS SOFTWARE COMES AS IS, WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY. USE AT YOUR OWN RISK.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>James C. Estill &lt;JamesEstill at gmail.com&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="history">HISTORY</a></h1>
+<p>STARTED: 07/12/2006</p>
+<p>UPDATED: 12/07/2008</p>
+<p>VERSION: $Rev$
+
+</p>
+<table border="0" width="100%" cellspacing="0" cellpadding="3">
+<tr><td class="block" valign="middle">
+<big><strong><span class="block">&nbsp;seq_add_num.pl</span></strong></big>
+</td></tr>
+</table>
+
+</body>
+
+</html>
