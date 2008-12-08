@@ -26,11 +26,11 @@
 	<ul>
 
 		<li><a href="#usage">Usage</a></li>
-		<li><a href="#commonly_used_arguments">Commonly Used Arguments</a></li>
+		<li><a href="#required_arguments">Required Arguments</a></li>
 	</ul>
 
 	<li><a href="#description">DESCRIPTION</a></li>
-	<li><a href="#commonly_used_arguments">COMMONLY USED ARGUMENTS</a></li>
+	<li><a href="#required_arguments">REQUIRED ARGUMENTS</a></li>
 	<li><a href="#options">OPTIONS</a></li>
 	<li><a href="#examples">EXAMPLES</a></li>
 	<li><a href="#diagnostics">DIAGNOSTICS</a></li>
@@ -65,7 +65,7 @@
 </p>
 <hr />
 <h1><a name="version">VERSION</a></h1>
-<p>This documentation refers to cnv_blast2sim.pl version $Rev: 71 $</p>
+<p>This documentation refers to cnv_blast2sim.pl version $Rev: 93 $</p>
 <p>
 </p>
 <hr />
@@ -77,7 +77,7 @@
     cnv_blast2sim.pl -i BlastOutput.bln -o SimFile.txt</pre>
 <p>
 </p>
-<h2><a name="commonly_used_arguments">Commonly Used Arguments</a></h2>
+<h2><a name="required_arguments">Required Arguments</a></h2>
 <pre>
     -i, --infile    # Path to the input file to parse
     -o, --outfile   # Path to the output similarity file
@@ -96,7 +96,7 @@ number from the fasta header.</p>
 <p>
 </p>
 <hr />
-<h1><a name="commonly_used_arguments">COMMONLY USED ARGUMENTS</a></h1>
+<h1><a name="required_arguments">REQUIRED ARGUMENTS</a></h1>
 <dl>
 <dt><strong><a name="item__2di_2c_2d_2dinfile">-i,--infile</a></strong>
 
@@ -197,23 +197,24 @@ POD documentation for the program.</p>
 <h1><a name="examples">EXAMPLES</a></h1>
 <p>If you have a BLAST file in the -m 8 aligment format, this can be used as input
 for the cnv_blast2sim.pl program. The following example shows converting
-a BLAST report (blast_result.bln) to a similarity matrix (sim_matrix.txt).</p>
+a BLAST report (blast_result.bln) to a similarity matrix (sim_matrix.txt):</p>
 <pre>
  cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt</pre>
 <p>By default, this will use a tiled bitscore as the metric of similarity.
 You may also select to report just the bitscore for the best HSP from
-an aligment between two sequence records. Using the same BLAST report
-this command would be</p>
+an aligment between two sequence records using the -b 1 options. 
+Using the same blast_result.bln report this command would be:</p>
 <pre>
- cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt</pre>
+ cnv_blast2sim.pl -i blast_result.bln -o sim_matrix.txt -b 1</pre>
 <p>The output from BLAST can be passed directly to this parser using pipes. 
 The following example shows using the cnv_blast2sim.pl with default parameters.
 The output will be printed to STDOUT. Using a fasta file (seqs.fasta) and the 
 BLAST formatted database of this file (myDB), the command to run BLAST using
-blastn follows.</p>
+blastn follows:</p>
 <pre>
  blastall -m 8 -p blastn -i seqs.fasta -d myDB | cnv_blast2sim.pl</pre>
-<p>The output file path (sim.txt) can be specified with the -o option as</p>
+<p>The output file path (sim.txt) can be specified with the -o option as shown
+below:</p>
 <pre>
  blastall -m 8 -p blastn -i seqs.fasta -d myDB | cnv_blast2sim.pl -o sim.txt</pre>
 <p>
@@ -324,7 +325,7 @@ WARRANTY. USE AT YOUR OWN RISK.</p>
 <p>UPDATED: 12/06/2008
 
 </p>
-<p>VERSION: $Rev: 71 $
+<p>VERSION: $Rev: 93 $
 
 </p>
 <table border="0" width="100%" cellspacing="0" cellpadding="3">
