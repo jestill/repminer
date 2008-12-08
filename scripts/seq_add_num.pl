@@ -1,57 +1,58 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# fasta_add_num.pl - Add integer prefix to fasta headers    |
+# seq_add_num.pl - Add integer prefix to sequence headers   |
 #                                                           |
 #-----------------------------------------------------------+
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: jestill_at_sourceforge.net                       |
 # STARTED: 07/12/2006                                       |
-# UPDATED: 12/18/2006                                       |
+# UPDATED: 12/07/2008                                       |
 #                                                           |
 # DESCRIPTION:                                              |
 #  Add a number prefix to the id line from a fasta file     |
 #  to allow for easy parsing of fasta sequences. The process|
 #  also provides each sequence with a unique incremental    |
-#  id that can be used for reference.                       |
+#  id that can be used for reference. Although designed     |
+#  to work with fasta format files, any bioperl valid       |
+#  sequence file format may be used for input or export.    |
 #                                                           |
 # USAGE:                                                    |
-#  fata_add_num.pl -i infilepath -o outfilepath             |
+#  seq_add_num.pl -i infilepath -o outfilepath              |
 #                                                           |
 # REQUIREMENTS:                                             |
 #  -bioperl                                                 |
-#  -DBI                                                     |
-#  -MySQL                                                   |
 #                                                           |
 #-----------------------------------------------------------+
-#
-# NOTE:
-# It may just as easy to do this without any references to
-# the bioperl modules. Just read through the input file and
-# append the incremental number to the beginning of the 
-# sequence. An advantage to using the Bioperl path is that
-# a different sequence input format could be used.
-#
 
 #-----------------------------+
 # INCLUDES                    |
 #-----------------------------+
-#use strict;
-use DBI;                       # Allows connection to MySQL database
+use strict;
 use Bio::SeqIO;                # Allows for treatment of seqs as objects
-use Text::Wrap;                # Allows printing of wrapped text
-#use Getopt::Std;               # Allows options flags at command line
 use Getopt::Long;              # Get options from command line
+# The following needed for printing help
+use Pod::Select;               # Print subsections of POD documentation
+use Pod::Text;                 # Print POD doc as formatted text file
+use IO::Scalar;                # For print_help subfunction
+use IO::Pipe;                  # Pipe for STDIN, STDOUT for POD docs
+use File::Spec;                # Convert a relative path to an abosolute path
+
+#-----------------------------+
+# PROGRAM VARIABLES           |
+#-----------------------------+
+my ($VERSION) = q$Rev$ =~ /(\d+)/;
 
 #-----------------------------+
 # LOCAL VARIABLES             |
 #-----------------------------+
-# USAGE STATEMENT
-#my $Usage = "fasta_add_num.pl -i InFilePath -o OutFilePath\n";
+my $infile;
+my $outfile;
+
 my $seq_in_format = "fasta";   # The input sequence format
 my $seq_out_format = "fasta";  # The output sequence format
-my $seq_num = 0;                # Var to keep track of nummber of seqs 
-my $seq_unique_id;               # Unique ID attributed to the seq read record
+my $seq_num = 1;               # Var to keep track of nummber of seqs 
+my $seq_unique_id;             # Unique ID attributed to the seq read record
 my $new_id;
 
 # BOOLEANS
@@ -65,14 +66,14 @@ my $show_help = 0;
 my $blast_opt = 0;
 
 #-----------------------------+
-# GET OPTIONS FROM THE        |
-# COMMAND LINE                |
+# COMMAND LINE OPTIONS        |
 #-----------------------------+
 
 my $ok = GetOptions(# REQUIRED OPTIONS
                     "i|infile=s"    => \$infile,
                     "o|outfile=s"   => \$outfile,
                     # ADDITIONAL OPTIONS
+		    "s|start-num"   => \$seq_num,
 		    "in-format"     => \$seq_in_format,
 		    "out-format"    => \$seq_out_format,
                     "q|quiet"       => \$quiet,
@@ -82,6 +83,32 @@ my $ok = GetOptions(# REQUIRED OPTIONS
                     "version"       => \$show_version,
                     "man"           => \$show_man,
                     "h|help"        => \$show_help,);
+
+#-----------------------------+
+# SHOW REQUESTED HELP         |
+#-----------------------------+
+if ( ($show_usage) ) {
+#    print_help ("usage", File::Spec->rel2abs($0) );
+    print_help ("usage", $0 );
+}
+
+if ( ($show_help) || (!$ok) ) {
+#    print_help ("help",  File::Spec->rel2abs($0) );
+    print_help ("help",  $0 );
+}
+
+if ($show_man) {
+    # User perldoc to generate the man documentation.
+    system ("perldoc $0");
+    exit($ok ? 0 : 2);
+}
+
+if ($show_version) {
+    print "\n$0\n".
+	"Version: $VERSION\n\n";
+    exit;
+}
+
 
 #-----------------------------+
 # FASTA FILE IO               |
@@ -103,7 +130,6 @@ while (my $seq = $inseq->next_seq)  {
     # of the information will be left out of the new FASTA file
     # that is produced. It would be good to just capture the entire
     # FASTA header and append the incremented number.
-    $seq_num++;
     $seq_unique_id = $seq->primary_id;
     $new_id = $seq_num."|".$seq_unique_id ;
 
@@ -122,6 +148,9 @@ while (my $seq = $inseq->next_seq)  {
     #-----------------------------+
     $outAll->write_seq($seq);
 	
+    # Increment the sequence number
+    $seq_num++;
+
 
 } # END OF THE FOR EVERY SEQUENCE RECORD 
 
@@ -133,37 +162,99 @@ exit;
 # SUBFUNCTIONS                                              |
 #-----------------------------------------------------------+
 
+sub print_help {
+    my ($help_msg, $podfile) =  @_;
+    # help_msg is the type of help msg to use (ie. help vs. usage)
+    
+    print "\n";
+    
+    #-----------------------------+
+    # PIPE WITHIN PERL            |
+    #-----------------------------+
+    # This code made possible by:
+    # http://www.perlmonks.org/index.pl?node_id=76409
+    # Tie info developed on:
+    # http://www.perlmonks.org/index.pl?node=perltie 
+    #
+    #my $podfile = $0;
+    my $scalar = '';
+    tie *STDOUT, 'IO::Scalar', \$scalar;
+    
+    if ($help_msg =~ "usage") {
+	podselect({-sections => ["SYNOPSIS|MORE"]}, $0);
+    }
+    else {
+	podselect({-sections => ["SYNOPSIS|ARGUMENTS|OPTIONS|MORE"]}, $0);
+    }
+
+    untie *STDOUT;
+    # now $scalar contains the pod from $podfile you can see this below
+    #print $scalar;
+
+    my $pipe = IO::Pipe->new()
+	or die "failed to create pipe: $!";
+    
+    my ($pid,$fd);
+
+    if ( $pid = fork() ) { #parent
+	open(TMPSTDIN, "<&STDIN")
+	    or die "failed to dup stdin to tmp: $!";
+	$pipe->reader();
+	$fd = $pipe->fileno;
+	open(STDIN, "<&=$fd")
+	    or die "failed to dup \$fd to STDIN: $!";
+	my $pod_txt = Pod::Text->new (sentence => 0, width => 78);
+	$pod_txt->parse_from_filehandle;
+	# END AT WORK HERE
+	open(STDIN, "<&TMPSTDIN")
+	    or die "failed to restore dup'ed stdin: $!";
+    }
+    else { #child
+	$pipe->writer();
+	$pipe->print($scalar);
+	$pipe->close();	
+	exit 0;
+    }
+    
+    $pipe->close();
+    close TMPSTDIN;
+
+    print "\n";
+
+    exit 0;
+   
+}
+
 __END__;
 
 
 =head1 NAME
 
-cnv_blast2sim.pl - Convert BLAST report to similarity file
+seq_add_num.pl - Add integer prefix to sequence headers
 
 =head1 VERSION
 
-This documentation refers to cnv_blast2sim.pl version $Rev: 95 $
+This documentation refers to seq_add_num.pl version $Rev$
 
 =head1 SYNOPSIS
 
 =head2 Usage
 
-    cnv_blast2sim.pl -i BlastOutput.bln -o SimFile.txt
+    seq_add_num.pl -i infile.fasta -o outfile_num.fasta
 
 =head2 Required Arguments
 
-    -i, --infile    # Path to the input file to parse
-    -o, --outfile   # Path to the output similarity file
+    -i, --infile    # Path to the input file to add prefix integer to
+    -o, --outfile   # Path to the output file
 
 =head1 DESCRIPTION
 
-Extract blast -m8 or -m9 output to a simple three column
-similarity file. This output file is a tab delimited
-text file that can be easily imported into a SQL database
-or used as an input file for clustering.
-As part of the process this script also parses the
-RepMiner header format and returns the unique identifier
-number from the fasta header.
+Add a number prefix to the id line from a fasta file
+to allow for easy parsing of fasta sequences. The process
+also provides each sequence with a unique incremental
+id that can be used for reference. Although designed
+to work with fasta format files, any bioperl valid
+sequence file format may be used for input or export.
 
 =head1 REQUIRED ARGUMENTS
 
@@ -171,8 +262,8 @@ number from the fasta header.
 
 =item -i,--infile
 
-Path of the BLAST file to be parsed. If no infile argument is used
-the program will attempt to parse from STDIN.
+Path of the sequence file to add the prefix to the id.
+If no input file argument is used, the program will attempt to read from STDIN.
 
 =item -o,--outfile
 
@@ -221,15 +312,60 @@ Run the program with maximum output.
 
 Run the program with minimal output.
 
-=item --test
-
-Run the program without doing the system commands.
-
 =back
 
 =head1 EXAMPLES
 
-Examples here
+=head2 Typical Use
+
+To use the program to parse a fasta format file to a fasta format file
+where the headers have unique integers as a prefix:
+
+ seq_add_num.pl -i infile.fasta -o out_num.fasta
+
+This will add an integer to the header files such that the following headers:
+
+ >seq_one
+ ATGT...
+ >seq_two
+ ATGT..
+
+Would be modified to:
+
+ >1|seq_one
+ ATGT...
+ >2|seq_two
+ ATGT...
+
+This will assure that in future analysis, all sequence records will have
+a single unique integer assigned to that sequence.
+
+=head2 Specify Seq Number Starting Point
+
+It is also possible to specify where the integer should begin incrementing
+from. This is useful when you want to combine sequence from two 
+separate files, but want the combined sequence records to
+have unique identifiers. For example the command:
+
+ seq_add_num.pl -i infile.fasta -o out_num.fasta --start-num 76
+
+would modify the seuqence headers to:
+
+ >76|seq_one
+ ATGT...
+ >77|seq_two
+ ATGT...
+
+=head2 Alternatives to FASTA File Format
+
+It is also possible to use sequence records that are not in the
+FASTA file format. The following command will convert a genbank format
+file to a fasta format file with integer prefixes starting at one.
+
+ seq_add_num.pl -i infile.gb --in-format genbank -o out_num.fasta
+
+The program assumes that you want the output in FASTA file format, so
+it is not necessary to specify FASTA format for output.
 
 =head1 DIAGNOSTICS
 
@@ -252,25 +388,14 @@ or any options in the user environment.
 
 =head1 DEPENDENCIES
 
-=head2 Required Software
-
-=over
-
-=item * NCBI blastall
-
-The latest version of the NCBI blastall program can be downloaded from:
-ftp://ftp.ncbi.nih.gov/blast/executables/LATEST
-
-=back
-
 =head2 Required Perl Modules
 
 =over
 
-=item * Bio::SearchIO
+=item * Bio::SeqIO
 
-This module is part of bioperl and is required to parse BLAST
-output in a format that is tiled across all HSPs.
+This module is part of bioperl and is required to read and write
+sequence records in multiple formats.
 
 =item * Getopt::Long
 
@@ -295,17 +420,17 @@ Sourceforge website: http://sourceforge.net/tracker/?group_id=192812
 
 =over
 
-=item * Limited to m8 or m9 BLAST format
+=item * Long sequence header information may be lost
 
-This script is designed to be a lean and fast parser of the 
-similarity information from BLAST. It is therefore limited
-to using the simple m8 or m9 BLAST alignment format.
+This program will only use the portion of the fasta header that is
+considered to be the primary id. The unique integer will be prepened
+to the primary id, and this will be used as the new id.
 
 =back
 
 =head1 SEE ALSO
 
-The cnv_blast2sim.pl program is part of the repminer package of 
+The seq_add_num.pl program is part of the repminer package of 
 repeat element annotation programs.
 See the DAWG-PAWS web page 
 ( http://repminer.sourceforge.net/ )
