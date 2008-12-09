@@ -600,7 +600,7 @@ to using the simple m8 or m9 BLAST alignment format.
 
 The cnv_blast2sim.pl program is part of the repminer package of 
 repeat element annotation programs.
-See the DAWG-PAWS web page 
+See the RepMiner web page 
 ( http://repminer.sourceforge.net/ )
 or the Sourceforge project page 
 ( http://sourceforge.net/projects/repminer/ )

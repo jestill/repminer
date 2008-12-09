@@ -1,14 +1,14 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# batch_prss34.pl - Run all by all prss34 on dir of seqs    |
+# batch_prss34.pl - Run all by all fasta on dir of seqs     |
 #                                                           |
 #-----------------------------------------------------------+
 #                                                           |
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: JamesEstill_@_gmail.com                          |
 # STARTED: 02/13/2008                                       |
-# UPDATED: 02/18/2008                                       |
+# UPDATED: 12/08/2008                                       |
 #                                                           |
 # DESCRIPTION:                                              | 
 #  Given a directory of fasta filesrun the prss34 program to|
@@ -17,13 +17,28 @@
 #  In the future this could be used to store data in the    |
 #  BioSQL graph/tree extension.                             |
 #                                                           |
-# VERSION: $Rev$                                            |
+# VERSION: $Rev$                                       |
 #                                                           |
 # LICENSE:                                                  |
 #  GNU General Public License, Version 3                    |
 #  http://www.gnu.org/licenses/gpl.html                     |  
 #                                                           |
 #-----------------------------------------------------------+
+# TODO:
+# - add option to retrun the smith-waterman score as opposed
+#   to the z-score. This can be done as a "score" option or
+#   as a --z-score options
+# - However the use of the --score option will allo
+#    -$p_id ----> percent identity
+#    -$p_sim ---> percent similarity
+#    -$sw  -----> smith waterman
+#    -$e_val ---> e value will need to be transformed
+#    -$z_score -> default value used
+# TODO:
+#  - Upload the results as edge attributes to a database
+#    however it may make sense to fetch the sequences from the database
+#    as part of the process
+# 
 
 package REPMINER;
 
@@ -33,6 +48,12 @@ package REPMINER;
 use strict;
 use Getopt::Long;
 use Bio::SeqIO;
+# The following needed for printing help
+use Pod::Select;               # Print subsections of POD documentation
+use Pod::Text;                 # Print POD doc as formatted text file
+use IO::Scalar;                # For print_help subfunction
+use IO::Pipe;                  # Pipe for STDIN, STDOUT for POD docs
+use File::Spec;                # Convert a relative path to an abosolute path
 
 #-----------------------------+
 # PROGRAM VARIABLES           |
@@ -77,7 +98,7 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "i|indir=s"    => \$indir,
                     "o|outdir=s"   => \$outdir,
 		    # ADDITIONAL OPTIONS
-		    "d|dbdir=s"    => \$dbdir,
+		    "d|dbdir=s"    => \$dbdir,  # not currently used
 		    "p|program=s"  => \$program, 
 		    "q|quiet"      => \$quiet,
 		    "verbose"      => \$verbose,
@@ -90,23 +111,26 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 #-----------------------------+
 # SHOW REQUESTED HELP         |
 #-----------------------------+
-if ($show_usage) {
-    print_help("");
+if ( ($show_usage) ) {
+#    print_help ("usage", File::Spec->rel2abs($0) );
+    print_help ("usage", $0 );
 }
 
-if ($show_help || (!$ok) ) {
-    print_help("full");
-}
-
-if ($show_version) {
-    print "\n$0:\nVersion: $VERSION\n\n";
-    exit;
+if ( ($show_help) || (!$ok) ) {
+#    print_help ("help",  File::Spec->rel2abs($0) );
+    print_help ("help",  $0 );
 }
 
 if ($show_man) {
     # User perldoc to generate the man documentation.
-    system("perldoc $0");
+    system ("perldoc $0");
     exit($ok ? 0 : 2);
+}
+
+if ($show_version) {
+    print "\n$0\n".
+	"Version: $VERSION\n\n";
+    exit;
 }
 
 #-----------------------------+
@@ -245,7 +269,7 @@ for my $ind_file_1 (@fasta_files) {
 	# GENERATE THE COMMAND FOR RUNNING FASTA
 	my $cmd = "$program $seq1_path $seq2_path -B -m 9 -H -Q\n";
 
-	# OPEN FILE HANDLE TO GET THE OUTPUT FROM PRSS
+	# OPEN FILE HANDLE TO GET THE OUTPUT FROM FASTA
 	open (ALIGN, "$cmd |") ||
 	    die "Can not run the fasta program requested\n";
 
@@ -340,7 +364,10 @@ for my $ind_file_1 (@fasta_files) {
     #-----------------------------+
     # Using median PERL code from 
     # http://dada.perl.it/shootout/moments.perl.html
-    
+    # If a general approach for similarity values was used
+    # the z value array would need to hold other types of values as well
+
+
     @z_scores = sort { $a <=> $b } @z_scores;
     my $n = scalar(@z_scores);
     my $mid = int($n/2);
@@ -370,43 +397,77 @@ exit;
 #-----------------------------------------------------------+
 
 sub print_help {
-
-    # Print requested help or exit.
-    # Options are to just print the full 
-    my ($opt) = @_;
-
-    my $usage = "USAGE:\n". 
-	"MyProg.pl -i InFile -o OutFile";
-    my $args = "REQUIRED ARGUMENTS:\n".
-	"  --infile       # Path to the input file\n".
-	"  --outfile      # Path to the output file\n".
-	"\n".
-	"OPTIONS::\n".
-	"  --version      # Show the program version\n".     
-	"  --usage        # Show program usage\n".
-	"  --help         # Show this help message\n".
-	"  --man          # Open full program manual\n".
-	"  --quiet        # Run program with minimal output\n";
-	
-    if ($opt =~ "full") {
-	print "\n$usage\n\n";
-	print "$args\n\n";
+    my ($help_msg, $podfile) =  @_;
+    # help_msg is the type of help msg to use (ie. help vs. usage)
+    
+    print "\n";
+    
+    #-----------------------------+
+    # PIPE WITHIN PERL            |
+    #-----------------------------+
+    # This code made possible by:
+    # http://www.perlmonks.org/index.pl?node_id=76409
+    # Tie info developed on:
+    # http://www.perlmonks.org/index.pl?node=perltie 
+    #
+    #my $podfile = $0;
+    my $scalar = '';
+    tie *STDOUT, 'IO::Scalar', \$scalar;
+    
+    if ($help_msg =~ "usage") {
+	podselect({-sections => ["SYNOPSIS|MORE"]}, $0);
     }
     else {
-	print "\n$usage\n\n";
+	podselect({-sections => ["SYNOPSIS|ARGUMENTS|OPTIONS|MORE"]}, $0);
+    }
+
+    untie *STDOUT;
+    # now $scalar contains the pod from $podfile you can see this below
+    #print $scalar;
+
+    my $pipe = IO::Pipe->new()
+	or die "failed to create pipe: $!";
+    
+    my ($pid,$fd);
+
+    if ( $pid = fork() ) { #parent
+	open(TMPSTDIN, "<&STDIN")
+	    or die "failed to dup stdin to tmp: $!";
+	$pipe->reader();
+	$fd = $pipe->fileno;
+	open(STDIN, "<&=$fd")
+	    or die "failed to dup \$fd to STDIN: $!";
+	my $pod_txt = Pod::Text->new (sentence => 0, width => 78);
+	$pod_txt->parse_from_filehandle;
+	# END AT WORK HERE
+	open(STDIN, "<&TMPSTDIN")
+	    or die "failed to restore dup'ed stdin: $!";
+    }
+    else { #child
+	$pipe->writer();
+	$pipe->print($scalar);
+	$pipe->close();	
+	exit 0;
     }
     
-    exit;
-}
+    $pipe->close();
+    close TMPSTDIN;
 
+    print "\n";
+
+    exit 0;
+   
+}
 
 sub median {
 
 }
 
+__END__;
+
 =head1 NAME
 
-batch_fasta.pl - Run the fasta program in batch mode.
+batch_fasta.pl - Run all by all fasta on dir of seqs
 
 =head1 VERSION
 
@@ -414,35 +475,86 @@ This documentation refers to program version $Rev$
 
 =head1 SYNOPSIS
 
-  USAGE:
+=head2 Usage
+
     batch_fasta.pl -i indir -o OutFile
-
-    --indir        # Path to the input file
-    --outfie        # Path to the output file
-
-=head1 DESCRIPTION
-
-This is what the program does
-
-=head1 COMMAND LINE ARGUMENTS
 
 =head2 Required Arguments
 
+    -i       # Path to the dir containing the files to process
+    -o       # Path to the output dir where the results will be placed
+
+=head1 DESCRIPTION
+
+Given a directory of fasta filesrun the prss34 program to
+to generate a distance matrix. This will currently create
+output in the format needed for the apclust binary.
+In the future this could be used to store data in the
+BioSQL graph/tree extension.
+
+=head1 REQUIRED ARGUMENTS
+
 =over 2
 
-=item -i,--infile
+=item -i,--indir
 
-Path of the input file.
+Path of the input directory containing the fasta files to process.
+These files must end with the 'fasta' or 'fa' file extension to be 
+recognized. 
 
-=item -o,--outfile
+=item -o,--outdir
 
-Path of the output file.
+Path of the output directory where the results will be placed. If this output
+directory does not exist, it will be created.  Three files will be placed in
+this output directory:
+
+=over 2
+
+=item * similarity.txt
+
+The three colmn data to generate the matrix of similarity values.
+
+=item * vecname.txt
+
+The labels for the vector describing the sequences used to generate
+the similarity values.
+
+=item * preferences.txt
+
+The preferences file for use in the affinity propagation program.
 
 =back
 
-=head1 Additional Options
+=back
+
+=head1 OPTIONS
 
 =over 2
+
+=item -p,--program
+
+The program from the fasta package to use. By default this is set to fasta34,
+but prss34 could also be used. The valid options for this include:
+
+=over 2
+
+=item * fasta34
+
+Generates a similarity score between two sequences. 
+
+=item * prss34
+
+This is slower then the fasta algorithm.  This generates a Smith-Waterman local
+similarity score for the two sequences and tests for signficance using a
+Monte-Carlo analysis. The result is a z-score based on permutations.
+
+=item * ssearch34
+
+Generates a Smith-Waterman score between two sequences. This algorithm is
+about 10 times slower then fasta34, but is more sensitive for full length
+comparisions.
+
+=back
 
 =item --usage
 
@@ -486,13 +598,46 @@ Other modules or software that the program is dependent on.
 
 =head1 BUGS AND LIMITATIONS
 
-Any known bugs and limitations will be listed here.
+=head2 Bugs
+
+=over 2
+
+=item * No bugs currently known 
+
+If you find a bug with this software, file a bug report on the RepMiner
+Sourceforge website: http://sourceforge.net/tracker/?group_id=192812
+
+=back
+
+=head2 Limitations
+
+=over 2
+
+=item Fasta Extensions
+
+The fasta file extensions are currently limited to .fasta and .fa.
+Files in the input directory that do not end in fasta or fa will be ignored.
+
+=back
+
+=head1 SEE ALSO
+
+The batch_fasta.pl program is part of the repminer package of 
+repeat element annotation programs.
+See the RepMiner web page 
+( http://repminer.sourceforge.net/ )
+or the Sourceforge project page 
+( http://sourceforge.net/projects/repminer/ )
+for additional information about this package.
 
 =head1 LICENSE
 
-GNU General Public License, Version 3
+GNU GENERAL PUBLIC LICENSE, VERSION 3
 
-L<http://www.gnu.org/licenses/gpl.html>
+http://www.gnu.org/licenses/gpl.html
+
+THIS SOFTWARE COMES AS IS, WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY. USE AT YOUR OWN RISK.
 
 =head1 AUTHOR
 
@@ -502,7 +647,7 @@ James C. Estill E<lt>JamesEstill at gmail.comE<gt>
 
 STARTED: 02/13/2008
 
-UPDATED: 02/18/2008
+UPDATED: 12/08/2008
 
 VERSION: $Rev$
 
@@ -531,6 +676,10 @@ VERSION: $Rev$
 # - Testing on large database
 # - Cleaning up code after first SVN commit
 # - Adding code to write vectors and matrix files
+#
+# 12/08/2008
+# - Updating POD documentation
+# - Added new print_help subfunction
 #
 # TO DO:
 # - Write to external file
