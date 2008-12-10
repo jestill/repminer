@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# batch_prss34.pl - Run all by all fasta on dir of seqs     |
+# batch_fasta.pl - Run all by all fasta on dir of seqs      |
 #                                                           |
 #-----------------------------------------------------------+
 #                                                           |
@@ -17,7 +17,7 @@
 #  In the future this could be used to store data in the    |
 #  BioSQL graph/tree extension.                             |
 #                                                           |
-# VERSION: $Rev$                                       |
+# VERSION: $Rev$                                      |
 #                                                           |
 # LICENSE:                                                  |
 #  GNU General Public License, Version 3                    |
@@ -25,6 +25,8 @@
 #                                                           |
 #-----------------------------------------------------------+
 # TODO:
+# - Add option to select the edge attribute values that are
+#   returned
 # - add option to retrun the smith-waterman score as opposed
 #   to the z-score. This can be done as a "score" option or
 #   as a --z-score options
@@ -34,11 +36,25 @@
 #    -$sw  -----> smith waterman
 #    -$e_val ---> e value will need to be transformed
 #    -$z_score -> default value used
-# TODO:
-#  - Upload the results as edge attributes to a database
-#    however it may make sense to fetch the sequences from the database
-#    as part of the process
+#   --score
+#        z -----> The z score, the default value used
+#        pid ---> The percent id
+#        psim --> The percent similarity
+#        sw ----> The smith waterman score
+#        nsw ---> The normalized smith waterman score
+#        nle----> Negative log e value
+#        e -----> The e value
+#        all ---> Everything
 # 
+# - Upload the results as edge attributes to a database
+#   however it may make sense to fetch the sequences from the database
+#   as part of the process. 
+# - Accept single fasta sequence as input, this could use
+#   pipes with the seqio object to iterate across the db
+# - The database size can be specified with the -Z command, this is
+#   used for expectation value in FASTA, and SSEARCH. I think
+#   that prss34 generates this using iterations
+#
 
 package REPMINER;
 
@@ -65,12 +81,20 @@ my ($VERSION) = q$Rev$ =~ /(\d+)/;
 #-----------------------------+
 my $indir;
 my $outdir;
-my $dbdir;
+my $dbdir;                     # Allows to split the job by query seq subsets
 my $seq1_path;
 my $seq1_id;
 my $seq2_path;
 my $seq2_id;
-my $program = "fasta34";
+my $program = "prss34";
+my $base_param = "-B -m 9 -H -Q"; # These are the base parameters
+my $full_param;                   # The full paramater set passed to cmd
+my $param;                        # Additional parameters passed to prog
+
+# -B  ----> show the normalized score as a z score instead of a bitscore
+# -m 9 ---> use the short aligment option
+# -H -----> omit the histogram
+# -Q -----> quiet, do not prompt for input
 
 # Array to hold all Z scores for query sequence
 my @z_scores;
@@ -98,8 +122,9 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "i|indir=s"    => \$indir,
                     "o|outdir=s"   => \$outdir,
 		    # ADDITIONAL OPTIONS
-		    "d|dbdir=s"    => \$dbdir,  # not currently used
-		    "p|program=s"  => \$program, 
+		    "d|dbdir=s"    => \$dbdir,
+		    "p|program=s"  => \$program,
+		    "param=s",     => \$param,
 		    "q|quiet"      => \$quiet,
 		    "verbose"      => \$verbose,
 		    # ADDITIONAL INFORMATION
@@ -132,6 +157,25 @@ if ($show_version) {
 	"Version: $VERSION\n\n";
     exit;
 }
+
+unless ($dbdir) {
+    $dbdir = $indir;
+}
+
+
+#-----------------------------+
+# BUILD THE PARAMETER STRING  |
+#-----------------------------+
+
+if ($param) {
+    $param =~ s/^\s+//; #remove leading space
+    $param =~ s/\s+$//; #remove trailing spaces
+    $full_param = $base_param." ".$param;
+}
+else {
+    $full_param = $base_param;
+}
+
 
 #-----------------------------+
 # CHECK FOR REQUIRED COMMAND  |
@@ -192,6 +236,28 @@ if ($count_files == 0) {
     exit;
 }
 
+
+#-----------------------------+
+# GET FASTA FILES FROM DBDIR  |
+#-----------------------------+
+opendir( DIR, $dbdir ) ||
+    die "Can't open directory:\n$dbdir";
+my @db_fasta_files = grep /\.fasta$|\.fa$/, readdir DIR ;
+closedir( DIR );
+
+my $count_db_files = @db_fasta_files;
+
+#-----------------------------+
+# ERROR IF NOT FASTA FILES    |
+#-----------------------------+
+if ($count_db_files == 0) {
+    print "\a";
+    print "\nERROR: No fasta files were found in the db directory\n".
+        "$dbdir\n".
+        "Fasta files must have the fasta or fa extension.\n\n";
+    exit;
+}
+
 #-----------------------------+
 # OUTPUT FILE HANDLES         |
 #-----------------------------+
@@ -246,10 +312,10 @@ for my $ind_file_1 (@fasta_files) {
     #-----------------------------+
     # FOR EVERY FILE IN DB DIR    |
     #-----------------------------+
-    for my $ind_file_2(@fasta_files) {
+    for my $ind_file_2(@db_fasta_files) {
 
 	$j++;
- 	$seq2_path = $indir.$ind_file_2;
+ 	$seq2_path = $dbdir.$ind_file_2;
 	
 	if ($ind_file_2 =~ m/(.*)\.masked\.fasta$/) {
 	    $seq2_id = "$1";
@@ -267,8 +333,9 @@ for my $ind_file_1 (@fasta_files) {
 	print STDERR "Processing $i:$j\n" if $verbose;
 
 	# GENERATE THE COMMAND FOR RUNNING FASTA
-	my $cmd = "$program $seq1_path $seq2_path -B -m 9 -H -Q\n";
-
+	#my $cmd = "$program $seq1_path $seq2_path -B -m 9 -H -Q\n";
+	my $cmd = "$program $seq1_path $seq2_path $full_param\n";
+	
 	# OPEN FILE HANDLE TO GET THE OUTPUT FROM FASTA
 	open (ALIGN, "$cmd |") ||
 	    die "Can not run the fasta program requested\n";
@@ -318,15 +385,15 @@ for my $ind_file_1 (@fasta_files) {
 		#-----------------------------+
 		# PRINT OUTPUT                |
 		#-----------------------------+
-                print STDOUT "$seq1_id\t";     # Use seq1 id from fasta file
-		print STDOUT "$seq2_id\t";     # Use seq2 id from fasta file
-		print STDOUT "$z_score\t";     # Z score
-		print STDOUT "$e_val\t";       # E value
-		print STDOUT "$p_id\t";        # Percent ID
-		print STDOUT "$p_sim\t";       # Percent Similarity
-		print STDOUT "$sw\t";          # Smith Waterman Score
-		print STDOUT "$query_start\t"; # Start align in query seq
-		print STDOUT "$query_end\n";   # End align in query seq
+                print STDOUT "$seq1_id\t";     # 1 Use seq1 id from fasta file
+		print STDOUT "$seq2_id\t";     # 2 Use seq2 id from fasta file
+		print STDOUT "$z_score\t";     # 3 Z score
+		print STDOUT "$e_val\t";       # 4 E value
+		print STDOUT "$p_id\t";        # 5 Percent ID
+		print STDOUT "$p_sim\t";       # 6 Percent Similarity
+		print STDOUT "$sw\t";          # 7 Smith Waterman Score
+		print STDOUT "$query_start\t"; # 8 Start align in query seq
+		print STDOUT "$query_end\n";   # 9 End align in query seq
 
 		#-----------------------------+
 		# PRINT SIMILARITY OUTPUT     |
@@ -486,11 +553,43 @@ This documentation refers to program version $Rev$
 
 =head1 DESCRIPTION
 
-Given a directory of fasta filesrun the prss34 program to
+Given a directory of fasta files, run the prss34 program to
 to generate a distance matrix. This will currently create
 output in the format needed for the apclust binary.
 In the future this could be used to store data in the
-BioSQL graph/tree extension.
+BioSQL graph/tree extension. The current version will only run 
+prss34, and will output the z score values. Future versions will incorporate
+more options with respect to the fasta command line options and the 
+scores that are returned. Full description of the fasta suite of 
+programs is available in fasta3x.doc in the directory your fasta programs
+are stored in. Currently all values will be printed to STOUT in the 
+tab delim format. 
+
+=over 2
+
+=item 1. id of qry
+
+This is derived from the file name be removing the fasta extension
+
+=item 2. id of hit sequence
+
+This is derived from the file name by removing the fasta extension.
+
+=item 3. z score
+
+=item 4. e value
+
+=item 5. percent id
+
+=item 6. Percent Similarity
+
+=item 7. Smith Waterman Score
+
+=item 8. Start algin in query sequence
+
+=item 9. End align in query sequence
+
+=back
 
 =head1 REQUIRED ARGUMENTS
 
@@ -556,6 +655,24 @@ comparisions.
 
 =back
 
+=item -d,--dbdir
+
+The directory to use as the database directory. By default, the input dir
+will serve as both the query sequence directory and the database directory.
+Having a separate database directory allows to split the job by query
+sequence sets that will all query the same db dir.
+
+=item --param
+
+A parameter string that will be passed to the FASTA program. 
+This paramter string is the place to specifiy options such as the database 
+size, or to change the score values used. 
+By default the following paramters will
+always be used '-B -m 9 -H -Q'. Any additional parameter options will
+be appended to this string. For the full information on parameters
+that can be modified, see the the fasta3x.doc file that was installed 
+in your installation of the fasta package. 
+
 =item --usage
 
 Short overview of how to use program from command line.
@@ -578,6 +695,50 @@ POD documentation for the program.
 Run the program with minimal output.
 
 =back
+
+=head1 EXAMPLES
+
+=head2 Typical Use
+
+To compare all the fasta sequences in a directory of files to themselves
+you would run the following command
+
+ batch_fasta.pl -i indir/ -o outdir/
+
+=head2 Send Scores to an External File
+
+By default the scores that are produced by FASTA are printed to STDOUT.
+This can be redirected to a file in Unix using >:
+
+ batch_fasta.pl -i indir/ -o outdir/ > score_file.txt
+
+This file can be uploaded to a database or parsed to select scores other 
+then the z score for use as a metric of similarity.
+
+=head2 Use an Alternative FASTA program
+
+By default the batch fasta program will use the prss34 program. This
+option can be modified with the --program option. For example
+the following command will use the fasta program to generate the
+alignment score between sequences.
+
+ batch_fasta.pl -i indir/ -o outdir/ --program fasta34
+
+=head2 Modify FASTA Parameters
+
+It may become necessry for you to modify the paramters that you want
+to use to run the fasta program. By default the following paramters will
+always be used '-B -m 9 -H -Q'. Any additional parameter options will
+be appended to this string. For example, to modifiy the match mismatch
+scores with '-r' and add owercase masking '-S': 
+
+ batch_fasta.pl -i indir/ -o outdir/ --param '-r +3/-2 -S'
+
+To specifgy the database size (in number of sequences) you would
+use the '-Z' option. For example, if there are 12,000 sequences in
+in the all by all fasta search:
+
+ batch_fasta.pl -i indir/ -o outdir/ -program fasta34 --param '-Z 12000'
 
 =head1 DIAGNOSTICS
 
@@ -681,6 +842,16 @@ VERSION: $Rev$
 # - Updating POD documentation
 # - Added new print_help subfunction
 #
+# 12/10/2008
+# - Added the option to use a sepearte db dir, this will useful
+#   for running this on the cluster machine
+# - Added the --param option, can specify parameter set to be sent
+#   to the fasta program. This would be the place to specify the 
+#   database size for the fasta34 and 
+#   The paramter option also allows for changing tupule size and
+#   scoring to best fit the data at hand.
+# - Changed default program from fasta34 to prss34
+#
 # TO DO:
 # - Write to external file
 # - Get multiple local alignments if desired
@@ -691,3 +862,6 @@ VERSION: $Rev$
 #   across nodes?? Would as
 # - Should extract length of the query sequence and report this as well
 # - May want to add ability to sort the fasta file as integer names
+
+
+# The following is POD code for picking up additional programs ..
