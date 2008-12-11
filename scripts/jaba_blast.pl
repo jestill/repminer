@@ -16,11 +16,13 @@
 #  the Cytoscape graph visualization program.               |
 #                                                           |
 # USAGE:                                                    |
-#  jabablast.pl -h For full usage                           |
+#  jabablast.pl --usage                                     |
 #                                                           |
 #-----------------------------------------------------------+
-# Path variable for cytoscape
-#   - also allow for env options
+# TO DO:  
+#  -Path variable for cytoscape
+#    also allow for env options
+# - Add graph statistics using the Graph perl module
 #
 # [ ] Add ability to use identity or bit score for the
 #     parsing of the BLAST.
@@ -28,9 +30,6 @@
 # [ ] Consider the use of springgraph
 #     http://www.chaosreigns.com/code/springgraph/
 #
-
-
-# Set the package name to RepMiner
 
 package REPMINER;
 
@@ -48,6 +47,8 @@ use Pod::Text;                 # Print POD doc as formatted text file
 use IO::Scalar;                # For print_help subfunction
 use IO::Pipe;                  # Pipe for STDIN, STDOUT for POD docs
 use File::Spec;                # Convert a relative path to an abosolute path
+# The matrix draw subfunction used the GD package
+# use GD;
 
 #-----------------------------+
 # PROGRAM VARIABLES           |
@@ -58,9 +59,19 @@ my ($VERSION) = q$Rev$ =~ /(\d+)/;
 # TEMP FIX                    |
 #-----------------------------+
 my $Config;
-my $LaunchCytoscape;
+my $do_launch_cytoscape;
 my $RunGraphviz;
 my $CreateMatrix = 0;
+
+#-----------------------------+
+# CYTOSCAPE VARIABLES         |
+#-----------------------------+
+# MAKE ENV OPTIONS FOR THE FOLLOWING
+my $java_path = "java";
+my $cytoscape_lib = "/home/jestill/Apps/Cytoscape-v2.3/plugins";
+# Path to the cytoscape 
+my $cytoscape_path = "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
+my $cytoscape_mem = "2048M";
 
 #-----------------------------+
 # GENERAL USE PROGRAM VARS    |
@@ -137,10 +148,6 @@ my $DbName;                    # Database name
 my $tblAllByAll = "tblAllByAll";  # Database table to store All by All Blast
 my $tblQryCat = "tblRepeatID";    # Database table to store blast to repDB
 
-
-#/////////////////////////////////////
-# WORKING ON THE FOLLOWING
-#/////////////////////////////////////
 # BOOLEANS
 my $verbose = 0;
 my $line_num = 0;
@@ -150,14 +157,17 @@ my $show_version = 0;
 my $show_man = 0;
 my $show_help = 0; 
 
-
 my $ok = GetOptions(# REQUIRED OPTIONS
-                    #"i|infile=s"    => \$infile,
                     #"o|outfile=s"   => \$outfile,
 		    "i|infile=s"    => \$in_aba_blast,
 		    "o|outdir=s"    => \$NetDir,
 		    "Z|config=s"    => \$Config,  # Config file path
-                    # ADDITIONAL OPTIONS
+		    # CYTOSCAPE OPTIONS
+		    "launch-cyto"   => \$do_launch_cytoscape,
+		    "java-path=s"   => \$java_path,
+		    "cyto-path=s"   => \$cytoscape_path,
+		    "cyto-lib=s"    => \$cytoscape_lib,
+		    "cyto-mem=s"    => \$cytoscape_mem,
 		    # DATABASE VARIABLES
 		    "b=s"           => \$DbName,
 		    "u=s"           => \$DbUserName,
@@ -187,7 +197,6 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "y|y-scale=i"   => \$ysc,
                     "p|pix-size=i"  => \$pxs,
                     # BOOLEANS
-		    "launch-cyto"   => \$LaunchCytoscape, 
 		    "run-graphiz"   => \$RunGraphviz,
                     # ADDITIONAL INFORMATION
                     "q|quiet"       => \$quiet,
@@ -241,7 +250,7 @@ if ($show_version) {
 #    print "\n\nThe config file is:\n\t$Config\n\n";}
 #my $quiet = $Options{Q};
 #my $CreateMatrix = $Options{M};
-#my $LaunchCytoscape = $Options{C};
+#my $do_launch_cytoscape = $Options{C};
 #my $RunGraphviz = $Options{G};
 
 
@@ -332,20 +341,6 @@ if ($CreateMatrix) {
 
 
 #-----------------------------+
-# LOAD OPTIONAL LIBRARIES     |
-#-----------------------------+
-if ($CreateMatrix) {
-
-    require GD;
-    GD->import( qw/Image/ );
-#    eval { require GD; }; 
-#    if (! $@) {
-#	require GD;
-#    }
-
-}
-
-#-----------------------------+
 # GET USER PASSWORD           |
 #-----------------------------+
 # This can also be passed at the command line with --password
@@ -380,11 +375,10 @@ my $RepDB = DBI->connect("DBI:mysql:database=$RepDbName;host=localhost",
 mkdir $NetDir, 0777 unless (-e $NetDir);
 
 #-----------------------------+
-# OUTPUT FILES                |
+# CYTOSCAPE OUTPUT FILES      |
 #-----------------------------+
 my $SumOut = $NetDir."SumInfo.txt";
 my $SifOut = $NetDir.$NetName.".sif";
-my $NA_BACOut = $NetDir."BAC.NA";
 my $NA_RepClass = $NetDir."RepClass.NA";
 my $NA_RepName = $NetDir."RepName.NA";
 my $NA_SeqData = $NetDir."Seq.NA";
@@ -415,11 +409,6 @@ open (SIFOUT, ">$SifOut") ||   #Network *.SIF file
 # BLAST HSP
 open (HSPOUT, ">$HSPSif") ||
     die "Can not open $HSPSif\n";
-
-# NODE ATTRIBUTE : BAC
-open (BACOUT, ">$NA_BACOut") ||
-    die "Can not open $NA_BACOut\n";  
-print BACOUT "BAC\n";
 
 # NODE ATTRIBUTE : REPEAT CLASS
 open (REPOUT, ">$NA_RepClass") ||
@@ -478,10 +467,10 @@ if ($BlastFormat == '8') {
     &ParseTabBLAST ($in_aba_blast);
 
     # Parse AxA to Graph Object and Classify
+    # This generates the list of connected components
     &ParseTabBLAST2Graph ($in_aba_blast);
 
 }
-# AT WORK HERE THIS WILL LOAD TAB DELIMITED ALL BY ALL BLAST
 
 #-----------------------------+
 # PARSE THE REPEAT BLAST TO   |
@@ -504,14 +493,6 @@ if ($RepBLAST) {
 }
 
 #-----------------------------+
-# PARSE THE BLASTX AGAINST    |
-# THE DROSOPHILA              |
-# GAG/POL/INTEGRASE PROTEINS  |
-#-----------------------------+
-#print "ATTEMPTING TO LOAD DROS FILE\n";
-#&LoadDrosGPI ($DrosBLAST,$DrosOut);
-
-#-----------------------------+
 # DO QUERY TO MERGE DATA FROM |
 # QRY INFORMATION FROM THE    |
 # REPEAT DB BLAST TO THE ALL  |
@@ -529,10 +510,9 @@ if ($RepBLAST) {
 # NODE ATTRIBUTES THAT WERE   |
 # CREATED                     |
 #-----------------------------+
-if ($LaunchCytoscape) {
-#    &LaunchCytoscapeOld ($SifOut);
-    &LaunchCytoscapeNew ($SifOut);
-#    &LaunchCytoscape_2_4 ($SifOut);
+if ($do_launch_cytoscape) {
+    &LaunchCytoscape ($SifOut, $cytoscape_path, $cytoscape_lib,
+		      $java_path, $cytoscape_mem);
 }
 
 #-----------------------------+
@@ -550,7 +530,6 @@ if ($CreateMatrix) {
 #-----------------------------------------------------------+
 close SUMOUT;                  # Close the summary output file
 close SIFOUT;                  # Close the sif network output file
-close BACOUT;                  # Close BAC NA file 
 close REPOUT;                  # Close Repeat Class NA file
 close BITOUT;                  # Close the BitScore EA file
 close REPNAME;                 # Close the RepeatName NA file
@@ -708,8 +687,7 @@ sub DbSetup {
 
 
 
-sub LoadRepClass
-{
+sub LoadRepClass {
 
     print "Defining repeat classes.\n";
 
@@ -2323,9 +2301,6 @@ sub LoadAllByAll {
 	# RESULTS TO THE NODE         |
 	# ATTRIBUTE FILES             |
 	#-----------------------------+
-	#my $QryBACID = &FetchSeqInfo("tblSeqData", "bac", $DbQryID);
-	#print "\tBAC: $QryBACID\n";
-	#print BACOUT $XCrd."=".$QryBACID."\n";
 
 	my $QrySeqData =&FetchSeqInfo("tblSeqData", "seq", $DbQryID);
 	print SEQOUT $XCrd."=".$QrySeqData."\n";
@@ -2570,49 +2545,9 @@ sub UserFeedback {
   
 }
 
-sub LaunchCytoscapeOld {
-#-----------------------------+
-# LAUNCH CYTOSCAPE WITH THE   |
-# EDGE ATTRIBUTES AND NODE    |
-# ATTRIBUTES THAT HAVE BEEN   |
-# CREATED                     |
-# Cytoscape V 2.2             |
-#-----------------------------+
+sub LaunchCytoscape {
 
-    # Edge attributes are -j
-    # Node attributes are -n
-
-    print "Launching Cytoscape\n";
-    my $CyPath = "/home/jestill/Apps/Cytoscape-v2.2/cytoscape.jar";
-    my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
-    my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.2/plugins";
-
-    # SIF NETWORK FILE
-    my $SifFile = $_[0]; # The -i variable
-    # NODE ATTRIBUTE FILES
-    my $NAs = $NA_BACOut." ".$NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
-    # EDGE ATTRIBUTE FILES
-    my $EAs = $EA_BitScore." ".$EA_Sig;
-#    my $SysCmd = 'java -Xmx512M -jar '.$CyPath.' -i '.$SifFile.
-    my $SysCmd = 'java -Xmx2048M -jar '.$CyPath.' -i '.$SifFile.
-	    ' -vp '.$VpPath.' cytoscape.CyMain'.
-	    ' --JLD '.$PlugPath.
-	    #' -n '.$NA_BACOut.
-	    ' -n '.$NAs.
-	    ' -j '.$EAs.
-	    ' $*';
-
-    print "\n\nCMD IS:\n$SysCmd\n\n";
-    system ( $SysCmd );
-
-}
-
-
-sub LaunchCytoscapeNew {
-#-----------------------------+
-# NEW VERSION OF THE LAUNCH   |
-# CYTOSCAPE FOR VERSION 2.3   |
-#-----------------------------+
+    my ($SifFile, $CyPath, $PlugPath, $JavaPath, $CyMem) = @_; 
 
     # Relevant Cytoscape command line arguments
     # Edge attributes are    -e
@@ -2622,16 +2557,14 @@ sub LaunchCytoscapeNew {
     # Vizmap properties file -V
     # Cytoscape Properties   -P
     # 
-
     print "Launching Cytoscape\n";
     my $CyPath = "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
     #my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
     my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.3/plugins";
 
     # SIF NETWORK FILE
-    my $SifFile = $_[0]; # The -N variable
     # NODE ATTRIBUTE FILES
-    my $NAs = $NA_BACOut." ".$NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
+    my $NAs = $NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
     # EDGE ATTRIBUTE FILES
     my $EAs = $EA_BitScore." ".$EA_Sig;
 #    my $SysCmd = 'java -Xmx512M -jar '.$CyPath.
@@ -2642,62 +2575,6 @@ sub LaunchCytoscapeNew {
 	' -p '.$PlugPath.
 	' -n '.$NAs.
 	' -e '.$EAs.
-	' $*';
-
-    print "\n\nCMD IS:\n$SysCmd\n\n";
-    system ( $SysCmd );
-
-}
-
-sub LaunchCytoscape_2_4 {
-# Added
-# 04/04/2007
-#-----------------------------+
-# NEW VERSION OF THE LAUNCH   |
-# CYTOSCAPE FOR VERSION 2.4   |
-#-----------------------------+
-# The following is still not working
-
-    # Relevant Cytoscape command line arguments
-    # Edge attributes are    -e
-    # Node attributes are    -n
-    # Network file           -N
-    # Cytoscape plugin path  -p
-    # Vizmap properties file -V
-    # Cytoscape Properties   -P
-    # 
-
-    print "Launching Cytoscape\n";
-
-    #my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
-#    my $CyPath = "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
-#    my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.3/plugins";
-
-    my $CyPath = "/home/jestill/Apps/Cytoscape_v2.4.0/cytoscape.jar";
-    my $PlugPath = "/home/jestill/Apps/Cytoscape_v2.4.0/plugins";
-
-    # SIF NETWORK FILE
-    my $SifFile = $_[0]; # The -N variable
-    # NODE ATTRIBUTE FILES
-#    my $NAs = $NA_BACOut." ".$NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
-
-    my $NAs = $NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
-    # EDGE ATTRIBUTE FILES
-#    my $EAs = $EA_BitScore." ".$EA_Sig;
-# Adding edge flag here
-    my $EAs = $EA_BitScore." -e ".$EA_Sig;
-    my $javapath = "/usr/java/jre1.5.0_06/bin/java";
-
-    my $SysCmd = $javapath.
-	' -Dswing.aatext=true'.
-	' -Xmx512M'.
-	' -jar '.$CyPath.
-	' cytoscape.CyMain'.
-	' -N '.$SifFile.
-	#' -V '.$VpPath.
-	' -n '.$NAs.
-	' -e '.$EAs.
-	' -p '.$PlugPath.
 	' $*';
 
     print "\n\nCMD IS:\n$SysCmd\n\n";
@@ -3006,144 +2883,6 @@ sub GetRBClass {
 
 }
 
-sub DrawXYPlot {
-#-----------------------------+
-# DRAW COLOR VALUED X-Y PLOT  |
-# OF THE SPARSE MATRIX        |
-# DESCRIBING THE ALL BY ALL   |
-# BLAST RESULTS               |
-#-----------------------------+
-
-    #-----------------------------------------------------------+
-    # CREATE GRAPHIC OF THE PARSED AND CATEGORIZED              |
-    # ALL BY ALL BLAST                                          |
-    #-----------------------------------------------------------+
-
-    #-----------------------------+
-    # CREATE GD IMAGE OBJECT      |
-    # TO HOLD THE GRAPH           |
-    #-----------------------------+
-    my $MaxX = &GetMaxVal("qry_num", $tblAllByAll);
-    my $MaxY = &GetMaxVal("hit_num", $tblAllByAll);
-    $MaxX = $MaxX*$xsc;
-    $MaxY = $MaxY*$ysc;
-
-    my $img = new GD::Image($MaxX, $MaxY);
-
-    #-----------------------------+
-    # ALLOCATE COLORS FOR THE     |
-    # REPEAT CATEGORIES           |
-    #-----------------------------+
-    my $white = $img->colorAllocate      ( 255,  255,255);
-    my $colSep = $img->colorAllocate     (   0,   0,   0);
-    my $colUnk = $img->colorAllocate     (   0,   0,   0);
-    my $colLTR = $img->colorAllocate     ( 255,   0,   0);
-    my $colNonLTR = $img->colorAllocate  (   0,   0, 255);
-    my $colMITE = $img->colorAllocate    (   0, 255, 255);
-    my $colCACTA = $img->colorAllocate   (   0, 255,   0);
-    my $colSelf = $img->colorAllocate    ( 200, 200, 200);  
-    my $colOryza = $img->colorAllocate   (   0, 255,   0);
-    my $colWess = $img->colorAllocate    ( 255,   0,   0);
-    my $colSanMig = $img->colorAllocate  (   0,   0, 255);
-    my $colZea = $img->colorAllocate     ( 200, 200,   0);
-
-    #-----------------------------+
-    # DRAW BLACK DOTS ON THE      |
-    # GRAPH FOR EACH PAIRED HIT   |
-    #-----------------------------+
-    print "ADDING POINTS TO GRAPHIC OUTPUT\n";
-
-    my $NumRecords = &how_many_records($tblAllByAll);
-
-    #-----------------------------+
-    # LOOP THROUGH THE DB OF ALL  |
-    # BY ALL HITS AND DRAW HITS   |
-    # WITH CLASS INDICATED BY     | 
-    # COLOR                       |
-    #-----------------------------+
-    for (my $i = 1; $i <= $NumRecords; $i++) 
-    {
-	my $Query = "SELECT * FROM ".$tblAllByAll." WHERE rownum=".$i;
-	my $sth = $dbh->prepare($Query);
-	$sth->execute();
-	while(my @row_ref = $sth->fetchrow_array)
-	{
-	    $XCrd = $row_ref[1] * $xsc;
-	    $YCrd = $row_ref[2] * $ysc;
-	    my $QryCat = $row_ref[4] || "unk";
-	    my $HitCat = $row_ref[5] || "unk";
-
-
-	    # May need to add general categorization routine here
-	    # to translate from 
-	    if ($HitCat =~ "self")
-	    {
-		$img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colSelf);
-	    }else{
-		if ($QryCat =~ "non-LTR-retrotransposon")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colNonLTR);
-		    $img->fill($XCrd, $YCrd, $colNonLTR);
-		}
-		elsif($QryCat =~ "LTR-retrotransposon")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colLTR);
-		    $img->fill($XCrd, $YCrd, $colLTR);
-		}
-		elsif ($QryCat =~ "CACTA-transposon")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colCACTA);
-		    $img->fill($XCrd, $YCrd, $colCACTA);
-		}
-		elsif ($QryCat =~ "MITE-foldback element")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colMITE);
-		    $img->fill($XCrd, $YCrd, $colMITE);
-		}
-		elsif ($QryCat =~ "UNK-OryzaRepeat")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colOryza);
-		}
-		elsif ($QryCat =~ "UNK-Wessler")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colWess);
-		}
-		elsif ($QryCat =~ "UNK-SanMiguel")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colSanMig);
-		}
-		elsif ($QryCat =~ "UNK-ZeaRepeat")
-		{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colZea);
-		}else{
-		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colUnk);
-		} # End of for deciding colors for nonSelfHits
-	    } # End of deciding between self hits and otherwise
-	}
-    }
-
-    #-----------------------------+
-    # WRITE OUTPUT TO FILE        |
-    #-----------------------------+
-    open (OUTFILE, ">$GraphOut") ||
-	die "Can not open $GraphOut";
-    binmode OUTFILE;
-    print OUTFILE $img->png;
-    close OUTFILE;
-
-    #-----------------------------+
-    # WRITE THE OUTPUT TO MONITOR |
-    # USING IMAGEMAGICK DISPLAY   |
-    #-----------------------------+
-    my $png_data = $img->png;
-    open (DISPLAY,"| display -") || die;
-    binmode DISPLAY;
-    print DISPLAY $png_data;
-    close DISPLAY;
-
-
-}
-
 
 sub trim($) {
     # Remove leading AND trailing whitespace
@@ -3232,8 +2971,6 @@ sub print_help {
     exit 0;
    
 }
-
-__END__;
 
 
 __END__;
@@ -3341,47 +3078,12 @@ Many of the following options require a database
 Without a database, only an all by all BLAST can be 
 visualized without classification into repeat categories
 
-=item -C
-
-Open Cytoscape to view the output [boolean flag]
-default = Cytoscape not opened.
-
 =item -G
 
 Produce graph with graphviz format. This will probably
 get moved to a separate program. There are a number 
 of variables that can be set with GraphViz that would be
 useful to set at the command lined. [Added 05/16/2007]
-
-=back
-
-=head2 Visual Matrix Options
-
-The matrix creation portion of jabablast may be dropped
-in the future to simplify the command line options and library requirements.
-
-=over 2
-
-=item --create-matrix
-
-Create visualization of all by all BLAST matrix.
-This is useful for visualiztion of small sets of ordered seqs.
-Use of this option requires the installation of the GD library.
-
-=item -x, --x-scale
-
-Matrix X axis scaling factor [positive integer]
-default = 2
-
-=item -y, --y-scale
-
-Matrix Y axis scaling factor [positive integer].
-default = 2
-
-=item -p, --pix-size
-
-Matrix Pixel size [positive integer].
-default =3
 
 =back
 
@@ -3448,6 +3150,36 @@ Minimum bit score for BLAST against repeat database.
 
 Minimum length of the query sequence against the repeat database.
 default = 50
+
+=back
+
+=head2 Cytoscape Options
+
+=over
+
+=item --launch-cyto
+
+Open Cytoscape to view the output [boolean flag]
+default = Cytoscape not opened.
+
+=item --cyto-path
+
+The path to the cytoscape jar file
+
+=item --cyto-lib
+
+The path to the directory of cytoscape
+
+=item --cyto-mem
+
+The memory to allocate to cytoscape. Larger graphs require more memory.
+
+=item --java-path
+
+The path to java. Be default this will assume that simply invoking 'java'
+will work. This variable allows you to specify the location of java
+directly. This is very useful if you have multile versions of java
+installed on your machine.
 
 =back
 
@@ -3563,6 +3295,10 @@ output in a format that is tiled across all HSPs.
 
 This module is required to accept options at the command line.
 
+=item * Graph
+
+The graph module is required.
+
 =back
 
 =head2 Required Databases
@@ -3590,7 +3326,6 @@ L<http://www.genomics.purdue.edu/~pmiguel/projects/retros/>
 L<http://www.tigr.org/tdb/e2k1/plant.repeats/>
 
 =back
-
 
 =head1 BUGS AND LIMITATIONS
 
@@ -3899,7 +3634,14 @@ VERSION: $Rev$
 # - Printing status information to STDERR instead of STDOUT
 # - Adding command line variables
 #    --password --> database user password
-# - Dropping 
+#    --cyto-path
+#    --cyto-mem
+#    --cyto-lib
+#    --java-path
+# - Dropping support for the the DrawXY Plot subfunction
+# - Removing old cytoscape subfunctions
+# - Adding new CytoscapeLaunch subfuction that accepts path vars
+# - Dropped the BACOUT and BAC related node attribute files
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
@@ -3931,4 +3673,243 @@ VERSION: $Rev$
 #    + Make new FASTA file with class info
 #    + Parse EMBL to a Hash for searching by name
 # How to work with SanMiguel and Wessler/MAGI data.
+
+#
+
+#-----------------------------------------------------------+
+# JUNKYARD
+#-----------------------------------------------------------+
+# Subfunctions not in use
+
+sub DrawXYPlot {
+#-----------------------------+
+# DRAW COLOR VALUED X-Y PLOT  |
+# OF THE SPARSE MATRIX        |
+# DESCRIBING THE ALL BY ALL   |
+# BLAST RESULTS               |
+#-----------------------------+
+
+    #-----------------------------------------------------------+
+    # CREATE GRAPHIC OF THE PARSED AND CATEGORIZED              |
+    # ALL BY ALL BLAST                                          |
+    #-----------------------------------------------------------+
+
+    #-----------------------------+
+    # CREATE GD IMAGE OBJECT      |
+    # TO HOLD THE GRAPH           |
+    #-----------------------------+
+    my $MaxX = &GetMaxVal("qry_num", $tblAllByAll);
+    my $MaxY = &GetMaxVal("hit_num", $tblAllByAll);
+    $MaxX = $MaxX*$xsc;
+    $MaxY = $MaxY*$ysc;
+
+    my $img = new GD::Image($MaxX, $MaxY);
+
+    #-----------------------------+
+    # ALLOCATE COLORS FOR THE     |
+    # REPEAT CATEGORIES           |
+    #-----------------------------+
+    my $white = $img->colorAllocate      ( 255,  255,255);
+    my $colSep = $img->colorAllocate     (   0,   0,   0);
+    my $colUnk = $img->colorAllocate     (   0,   0,   0);
+    my $colLTR = $img->colorAllocate     ( 255,   0,   0);
+    my $colNonLTR = $img->colorAllocate  (   0,   0, 255);
+    my $colMITE = $img->colorAllocate    (   0, 255, 255);
+    my $colCACTA = $img->colorAllocate   (   0, 255,   0);
+    my $colSelf = $img->colorAllocate    ( 200, 200, 200);  
+    my $colOryza = $img->colorAllocate   (   0, 255,   0);
+    my $colWess = $img->colorAllocate    ( 255,   0,   0);
+    my $colSanMig = $img->colorAllocate  (   0,   0, 255);
+    my $colZea = $img->colorAllocate     ( 200, 200,   0);
+
+    #-----------------------------+
+    # DRAW BLACK DOTS ON THE      |
+    # GRAPH FOR EACH PAIRED HIT   |
+    #-----------------------------+
+    print "ADDING POINTS TO GRAPHIC OUTPUT\n";
+
+    my $NumRecords = &how_many_records($tblAllByAll);
+
+    #-----------------------------+
+    # LOOP THROUGH THE DB OF ALL  |
+    # BY ALL HITS AND DRAW HITS   |
+    # WITH CLASS INDICATED BY     | 
+    # COLOR                       |
+    #-----------------------------+
+    for (my $i = 1; $i <= $NumRecords; $i++) 
+    {
+	my $Query = "SELECT * FROM ".$tblAllByAll." WHERE rownum=".$i;
+	my $sth = $dbh->prepare($Query);
+	$sth->execute();
+	while(my @row_ref = $sth->fetchrow_array)
+	{
+	    $XCrd = $row_ref[1] * $xsc;
+	    $YCrd = $row_ref[2] * $ysc;
+	    my $QryCat = $row_ref[4] || "unk";
+	    my $HitCat = $row_ref[5] || "unk";
+
+
+	    # May need to add general categorization routine here
+	    # to translate from 
+	    if ($HitCat =~ "self")
+	    {
+		$img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colSelf);
+	    }else{
+		if ($QryCat =~ "non-LTR-retrotransposon")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colNonLTR);
+		    $img->fill($XCrd, $YCrd, $colNonLTR);
+		}
+		elsif($QryCat =~ "LTR-retrotransposon")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colLTR);
+		    $img->fill($XCrd, $YCrd, $colLTR);
+		}
+		elsif ($QryCat =~ "CACTA-transposon")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colCACTA);
+		    $img->fill($XCrd, $YCrd, $colCACTA);
+		}
+		elsif ($QryCat =~ "MITE-foldback element")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colMITE);
+		    $img->fill($XCrd, $YCrd, $colMITE);
+		}
+		elsif ($QryCat =~ "UNK-OryzaRepeat")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colOryza);
+		}
+		elsif ($QryCat =~ "UNK-Wessler")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colWess);
+		}
+		elsif ($QryCat =~ "UNK-SanMiguel")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colSanMig);
+		}
+		elsif ($QryCat =~ "UNK-ZeaRepeat")
+		{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colZea);
+		}else{
+		    $img->arc($XCrd, $YCrd, $pxs, $pxs, 0, 360, $colUnk);
+		} # End of for deciding colors for nonSelfHits
+	    } # End of deciding between self hits and otherwise
+	}
+    }
+
+    #-----------------------------+
+    # WRITE OUTPUT TO FILE        |
+    #-----------------------------+
+    open (OUTFILE, ">$GraphOut") ||
+	die "Can not open $GraphOut";
+    binmode OUTFILE;
+    print OUTFILE $img->png;
+    close OUTFILE;
+
+    #-----------------------------+
+    # WRITE THE OUTPUT TO MONITOR |
+    # USING IMAGEMAGICK DISPLAY   |
+    #-----------------------------+
+    my $png_data = $img->png;
+    open (DISPLAY,"| display -") || die;
+    binmode DISPLAY;
+    print DISPLAY $png_data;
+    close DISPLAY;
+
+
+}
+
+
+
+sub LaunchCytoscapeOld {
+#-----------------------------+
+# LAUNCH CYTOSCAPE WITH THE   |
+# EDGE ATTRIBUTES AND NODE    |
+# ATTRIBUTES THAT HAVE BEEN   |
+# CREATED                     |
+# Cytoscape V 2.2             |
+#-----------------------------+
+
+    # Edge attributes are -j
+    # Node attributes are -n
+
+    print "Launching Cytoscape\n";
+    my $CyPath = "/home/jestill/Apps/Cytoscape-v2.2/cytoscape.jar";
+    my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
+    my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.2/plugins";
+
+    # SIF NETWORK FILE
+    my $SifFile = $_[0]; # The -i variable
+    # NODE ATTRIBUTE FILES
+    my $NAs = $NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
+    # EDGE ATTRIBUTE FILES
+    my $EAs = $EA_BitScore." ".$EA_Sig;
+#    my $SysCmd = 'java -Xmx512M -jar '.$CyPath.' -i '.$SifFile.
+    my $SysCmd = 'java -Xmx2048M -jar '.$CyPath.' -i '.$SifFile.
+	    ' -vp '.$VpPath.' cytoscape.CyMain'.
+	    ' --JLD '.$PlugPath.
+	    ' -n '.$NAs.
+	    ' -j '.$EAs.
+	    ' $*';
+
+    print "\n\nCMD IS:\n$SysCmd\n\n";
+    system ( $SysCmd );
+
+}
+
+
+sub LaunchCytoscape_2_4 {
+# Added
+# 04/04/2007
+#-----------------------------+
+# NEW VERSION OF THE LAUNCH   |
+# CYTOSCAPE FOR VERSION 2.4   |
+#-----------------------------+
+# The following is still not working
+
+    # Relevant Cytoscape command line arguments
+    # Edge attributes are    -e
+    # Node attributes are    -n
+    # Network file           -N
+    # Cytoscape plugin path  -p
+    # Vizmap properties file -V
+    # Cytoscape Properties   -P
+    # 
+
+    print "Launching Cytoscape\n";
+
+    #my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
+#    my $CyPath = "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
+#    my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.3/plugins";
+
+    my $CyPath = "/home/jestill/Apps/Cytoscape_v2.4.0/cytoscape.jar";
+    my $PlugPath = "/home/jestill/Apps/Cytoscape_v2.4.0/plugins";
+
+    # SIF NETWORK FILE
+    my $SifFile = $_[0]; # The -N variable
+    # NODE ATTRIBUTE FILES
+
+    my $NAs = $NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
+    # EDGE ATTRIBUTE FILES
+#    my $EAs = $EA_BitScore." ".$EA_Sig;
+# Adding edge flag here
+    my $EAs = $EA_BitScore." -e ".$EA_Sig;
+    my $javapath = "/usr/java/jre1.5.0_06/bin/java";
+
+    my $SysCmd = $javapath.
+	' -Dswing.aatext=true'.
+	' -Xmx512M'.
+	' -jar '.$CyPath.
+	' cytoscape.CyMain'.
+	' -N '.$SifFile.
+	#' -V '.$VpPath.
+	' -n '.$NAs.
+	' -e '.$EAs.
+	' -p '.$PlugPath.
+	' $*';
+
+    print "\n\nCMD IS:\n$SysCmd\n\n";
+    system ( $SysCmd );
+
+}
 
