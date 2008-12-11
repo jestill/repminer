@@ -37,12 +37,9 @@ package REPMINER;
 #-----------------------------+
 # INCLUDES                    |
 #-----------------------------+
-#use Graph::TransitiveClosure::Matrix;
 use Graph;
 use strict;                    # Gotta behave
-#use GD;                        # Draw using the GD program, 
 use DBI();                     # Database interface
-#use Getopt::Std;               # Get options from the command line
 use Bio::SearchIO;             # Parse BLAST output
 use Getopt::Long;              # Get options from command line
 # The following needed for printing help
@@ -63,7 +60,7 @@ my ($VERSION) = q$Rev$ =~ /(\d+)/;
 my $Config;
 my $LaunchCytoscape;
 my $RunGraphviz;
-my $CreateMatrix;
+my $CreateMatrix = 0;
 
 #-----------------------------+
 # GENERAL USE PROGRAM VARS    |
@@ -164,6 +161,7 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    # DATABASE VARIABLES
 		    "b=s"           => \$DbName,
 		    "u=s"           => \$DbUserName,
+		    "password=s"    => \$DbUserPassword,
 		    # General variables
 		    "f=s"           => \$NetName,
 		    # GRAPH OPTIONS
@@ -184,13 +182,13 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "a=s"           => \$tblAllByAll,
 		    "c=s"           => \$tblQryCat,
 		    # MATRIX OPTIONS
-		    "x=i"          => \$xsc,
-		    "y=i"          => \$ysc,
-                    "p=i"          => \$pxs,
+		    "create-matrix" => \$CreateMatrix,
+		    "x|x-scale=i"   => \$xsc,
+		    "y|y-scale=i"   => \$ysc,
+                    "p|pix-size=i"  => \$pxs,
                     # BOOLEANS
 		    "launch-cyto"   => \$LaunchCytoscape, 
 		    "run-graphiz"   => \$RunGraphviz,
-		    "create-matrix" => \$CreateMatrix,
                     # ADDITIONAL INFORMATION
                     "q|quiet"       => \$quiet,
                     "verbose"       => \$verbose,
@@ -198,9 +196,6 @@ my $ok = GetOptions(# REQUIRED OPTIONS
                     "version"       => \$show_version,
                     "man"           => \$show_man,
                     "h|help"        => \$show_help,);
-
-
-
 
 #-----------------------------+
 # SHOW REQUESTED HELP         |
@@ -231,33 +226,6 @@ if ($show_version) {
 #-----------------------------------------------------------+
 # COMMAND LINE VARIABLES                                    |
 #-----------------------------------------------------------+
-my $Usage = "USAGE:\n".
-    "jabablast.pl -i AllByAllBlast.blo -r RepElementBlast.blo\n". 
-    "-o OutputDir -u UserName -d DatabaseName -Q\n\n".
-    "jabablast.pl -C ConfigFile.jcfg\n\n".
-    "+-----------------------------------------------------------+\n".
-    "| REQUIRED ARGUMENTS                                        |\n".
-    "+-----------------------------------------------------------+\n".
-    " -i The AllByAllBlast File to parse [String]\n".
-    " -o The path of the output directory [String]\n".
-    " -u The user name for connection to the database [String]\n".
-    " -b The database name to use for the database connection. [String]\n".
-    "    This database MUST already exist in you MySQL database.\n".
-    "  OR\n".
-    " -Z Config file that provides the above information. [String]\n".
-    "\n".
-    "jabablast.pl -h TO GET FULL ARGUMENTS LIST.\n";
-
-my %Options;
-# leave g for GraphViz output path
-# j
-# p
-# t
-# v
-# w
-# z
-
-getopts('a:b:c:d:e:f:hi:k:l:m:n:o:r:s:u:x:y:CE:GL:N:S:MQZ:', \%Options);
 
 #-----------------------------+
 # THE FOLLOWING OPTIONS ARE   |
@@ -276,30 +244,14 @@ getopts('a:b:c:d:e:f:hi:k:l:m:n:o:r:s:u:x:y:CE:GL:N:S:MQZ:', \%Options);
 #my $LaunchCytoscape = $Options{C};
 #my $RunGraphviz = $Options{G};
 
-#-----------------------------+
-# PRINT HELP IF REQUESTED     |
-#-----------------------------+
-#if ($PrintHelp)
-#{
-#    &PrintHelp;
-#    exit;
-#}
 
 #-----------------------------+
-# SET VARIABLES               | 
+# LOAD CONFIG                 |
 #-----------------------------+
-
-
-
-
-
-
-
-
-
 # If a config file path was given set the user variables
-# using the config file, otherwise get all options
-# from the command line.
+# using the config file, otherwise assume all options 
+# are passed from the command line
+
 if ($Config) {
 
     # DATABASE VARIABLES
@@ -343,61 +295,7 @@ if ($Config) {
     $tblQryCat = &ParseConfigFile($Config,"RepeatTable") ||
 	"tblRepeatID";
     
-}else{
-
-#    $DbUserName = $Options{u} ||
-#	die "You must provide a database user name\n$Usage\n";
-#    $DbName = $Options{b} ||
-#	die "You must provide a database name to connect to";
-#    $in_aba_blast = $Options{i} || 
-#	die "You must provide an AllByAll BLAST output path\n$Usage\n";
-#    $NetDir = $Options{o} ||
-#	die "You must provide an output Directory path\n$Usage\n";
-#    $NetName = $Options{f} || "Network"; # Default network name is Network
-
-#    #-----------------------------+
-#    # GRAPH OPTIONS               |
-#    #-----------------------------+
-#    $GraphDir = $Options{d} || "0";
-
-    #-----------------------------+
-    # BLAST OPTIONS               |
-    #-----------------------------+
-#    $BlastFormat = $Options{m} || "8";
-    # ALL BY ALL BLAST VARS
-#    $A_MinQryLen = $Options{l} || "50";
-#    $A_MinScore = $Options{s} || "150";
-#    $A_MaxE = $Options{e} || "1.0e-05";
-
-    #-----------------------------+
-    # CATEGORIZATION BLAST VARS   |
-    #-----------------------------+
-    # Currently limited to repeat database blast, other
-    # node categorizatioin algorithms should be considered
-    #$RepBLAST = $Options{r};
-    #$MinQryLen = $Options {L} || "50";
-    #$MinScore = $Options{S} || "50";
-    #$MaxE = $Options{E} || "1.0e-03";
-    #$RepBlastDb = $Options{N};      # Name of repeat DB
-    #                                # only needed for tab blast
-    
-    #-----------------------------+
-    # DATABASE OPTIONS            |
-    #-----------------------------+
-#    # Table with All by All BLAST results        
-#    $tblAllByAll = $Options{a} || "tblAllByAll";      
-#    # Table with repeat ID BLAST results
-#    $tblQryCat = $Options{c} || "tblRepeatID";
-
-    #-----------------------------+
-    # MATRIX OPTIONS              |
-    #-----------------------------+
-#    $xsc = $Options{x} || "2";    # The X coordinate scaling factor
-#    $ysc = $Options{y} || "2";    # The Y coordinate scaling factor
-#    $pxs = $Options{p} || "4";    # Pixel size of the matched dots
-    
-    
-} # END OF GETTING INFO FROM COMMAND LINE
+}
 
 #-----------------------------------------------------------+
 # CHECK USER VARIABLES BEFORE CONTINUING WITH THE PROGRAM   |
@@ -405,43 +303,59 @@ if ($Config) {
 #
 # TODO: Turn this outupt and question off with the -q flag
 #       I can currently use an incorrected password to quit the program.
-print "NETDIR:\n\t$NetDir\n";
-print "NETNAME:\n\t$NetName\n";
+print STDERR "NETDIR:\n\t$NetDir\n";
+print STDERR "NETNAME:\n\t$NetName\n";
 
-print "ALLBYALL:\n\t$in_aba_blast\n";
-print "A_MinQryLen:\n\t$A_MinQryLen\n";
-print "A_MinScore:\n\t$A_MinScore\n";
-print "A_MaxE:\n\t$A_MaxE\n";
+print STDERR "ALLBYALL:\n\t$in_aba_blast\n";
+print STDERR "A_MinQryLen:\n\t$A_MinQryLen\n";
+print STDERR "A_MinScore:\n\t$A_MinScore\n";
+print STDERR "A_MaxE:\n\t$A_MaxE\n";
 
-print "DBUSER NAME:\n\t$DbUserName\n";
-print "DBNAME:\n\t$DbName\n";
-print "tblAllByAll:\n\t$tblAllByAll\n";
+print STDERR "DBUSER NAME:\n\t$DbUserName\n";
+print STDERR "DBNAME:\n\t$DbName\n";
+print STDERR "tblAllByAll:\n\t$tblAllByAll\n";
 
-if ($RepBLAST){
-    print "MinQryLen:\n\t$MinQryLen\n";
-    print "MinScore:\n\t$MinScore\n";
-    print "MaxE:\n\t$MaxE\n";
-    print "REPBLAST:\n\t$RepBLAST\n";
-    print "tblQryCat:\n\t$tblQryCat\n";
-    print "DB_NAME:\n\t$RepBlastDb\n"
-#    print "dbName:
+if ($RepBLAST) {
+    print STDERR "MinQryLen:\n\t$MinQryLen\n";
+    print STDERR "MinScore:\n\t$MinScore\n";
+    print STDERR "MaxE:\n\t$MaxE\n";
+    print STDERR "REPBLAST:\n\t$RepBLAST\n";
+    print STDERR "tblQryCat:\n\t$tblQryCat\n";
+    print STDERR "DB_NAME:\n\t$RepBlastDb\n"
 }
 
-if ($CreateMatrix)
-{
-    print "XSC:\n\t$xsc\n";
-    print "YSC:\n\t$ysc\n";
-    print "PXS:\n\t$pxs\n";
+if ($CreateMatrix) {
+    print STDERR "XSC:\n\t$xsc\n";
+    print STDERR "YSC:\n\t$ysc\n";
+    print STDERR "PXS:\n\t$pxs\n";
+}
+
+
+#-----------------------------+
+# LOAD OPTIONAL LIBRARIES     |
+#-----------------------------+
+if ($CreateMatrix) {
+
+    require GD;
+    GD->import( qw/Image/ );
+#    eval { require GD; }; 
+#    if (! $@) {
+#	require GD;
+#    }
+
 }
 
 #-----------------------------+
 # GET USER PASSWORD           |
 #-----------------------------+
-print "\nPassword for $DbUserName\n";
-system('stty', '-echo') == 0 or die "can't turn off echo: $?";
-$DbUserPassword = <STDIN>;
-system('stty', 'echo') == 0 or die "can't turn on echo: $?";
-chomp $DbUserPassword;
+# This can also be passed at the command line with --password
+if ( !$DbUserPassword ) {
+    print STDOUT "\nPassword for $DbUserName\n";
+    system('stty', '-echo') == 0 or die "can't turn off echo: $?";
+    $DbUserPassword = <STDIN>;
+    system('stty', 'echo') == 0 or die "can't turn on echo: $?";
+    chomp $DbUserPassword;
+}
 
 #-----------------------------------------------------------+
 # DB I/O CONNECT                                            | 
@@ -615,8 +529,7 @@ if ($RepBLAST) {
 # NODE ATTRIBUTES THAT WERE   |
 # CREATED                     |
 #-----------------------------+
-if ($LaunchCytoscape)
-{
+if ($LaunchCytoscape) {
 #    &LaunchCytoscapeOld ($SifOut);
     &LaunchCytoscapeNew ($SifOut);
 #    &LaunchCytoscape_2_4 ($SifOut);
@@ -628,8 +541,7 @@ if ($LaunchCytoscape)
 # REPRESENTING THE RESULTS OF |
 # THE ALL BY ALL BLAST        |
 #-----------------------------+
-if ($CreateMatrix)
-{
+if ($CreateMatrix) {
     &DrawXYPlot;
 }
 
@@ -648,7 +560,7 @@ close HSPFI;                   # Close the HSP fraction identical EA file
 close HSPLEN;                  # Close the HSP Length EA file
 close PIDOUT;                  # Close the PercentIdentity EA file
 
-print "The jabablast program has finished.\n";
+print STDERR "The jabablast program has finished.\n" if $verbose;
 exit;
 
 #-----------------------------------------------------------+
@@ -795,61 +707,6 @@ sub DbSetup {
 }
 
 
-
-sub LoadDrosGPI {
-#-----------------------------+
-# LOAD BLASTX OUTPUT FROM THE |
-# DROSOPHILA GAG/POL/INTEGRASE|
-# PROTEIN DOMAINS             |
-#-----------------------------+
-
-    my $DrosInFile = $_[0];
-    my $DrosOutFile = $_[1];
-    my $QryName;
-    my $BlastDB;
-    my $DHitName;              # Name of Dros Gag/Pol Hit
-    my $DrosHitCount = 0;
-
-    open (DROSOUT, ">$DrosOutFile") ||
-	die "Can not open output file: $DrosOutFile\n";
-    print DROSOUT "DrosGPI\n";
-
-    my $BlastReport = new Bio::SearchIO ( '-format' => 'blast',
-					  '-file'   => $DrosInFile)
-	||
-        die "Could not open BLAST input file:\n$DrosInFile.\n";
-
-    while (my $BlastResult = $BlastReport->next_result())
-    {
-	#print "Searching\n";
-	while (my $BlastHit = $BlastResult->next_hit())
-	{
-
-	    $QryName = $BlastResult->query_name;
-	    $BlastDB = $BlastResult->database_name;
-	    my @tmpqry = split(/\|/, $QryName );
-	    my $OutName = $tmpqry[0];
-
-	    $DrosHitCount++;
-	    print $DrosHitCount."\n";
-	    my $DHitName= $BlastHit->name();
-
-	    print DROSOUT $OutName."=".$DHitName."\n";
-
-	    while (my $BlastHSP = $BlastHit->next_hsp())
-	    {
-		print "\t".$BlastHSP->query_string()."\n";
-		print "\t".$BlastHSP->homology_string()."\n";
-		print "\t".$BlastHSP->hit_string()."\n";
-		print "\n";
-	    }
-	    
-	} # End of while BlastHit next_hit
-	
-    } # End of while BlastResult next_result
-
-    close DROSOUT;
-}
 
 sub LoadRepClass
 {
@@ -3407,7 +3264,7 @@ This documentation refers to jaba_blast.pl version $Rev$
 
 =head1 DESCRIPTION
 
-The jabablast (I<jamies all-by-all blast>) program allows for
+The jaba_blast.pl (I<jamie's all-by-all blast>) program allows for
 visualizing all by all blast results for use in the identification and
 analysis of the repetitive fraction of genome sequence data.
 The program can create a graphical representation of the matrix 
@@ -3472,7 +3329,7 @@ default = Network.sif
 
 =over 2
 
-=item -Q
+=item -q, --quiet
 
 Run program in quiet mode. [boolean flag]
 default = Not quiet.
@@ -3496,32 +3353,32 @@ get moved to a separate program. There are a number
 of variables that can be set with GraphViz that would be
 useful to set at the command lined. [Added 05/16/2007]
 
-=item -M 
-
-Create visualization of all by all BLAST matrix.
-default = Matrix not created.
-This is useful for visualiztion of small sets of ordered seqs.
-
 =back
 
-=head2 Matrix Options
+=head2 Visual Matrix Options
 
 The matrix creation portion of jabablast may be dropped
-in the future to simplify the command line options.
+in the future to simplify the command line options and library requirements.
 
 =over 2
 
-=item -x 2
+=item --create-matrix
+
+Create visualization of all by all BLAST matrix.
+This is useful for visualiztion of small sets of ordered seqs.
+Use of this option requires the installation of the GD library.
+
+=item -x, --x-scale
 
 Matrix X axis scaling factor [positive integer]
 default = 2
 
-=item -y 2
+=item -y, --y-scale
 
 Matrix Y axis scaling factor [positive integer].
 default = 2
 
-=item -p 3
+=item -p, --pix-size
 
 Matrix Pixel size [positive integer].
 default =3
@@ -3710,8 +3567,9 @@ This module is required to accept options at the command line.
 
 =head2 Required Databases
 
-This package also makes use of databases that can be fetched from external
-sources.
+This package also makes use of repeat databases that must be fetched from 
+external sources. These databases are used for nearest neighbor BLAST
+classification of unkown sequences.
 
 =over 2
 
@@ -4032,6 +3890,16 @@ VERSION: $Rev$
 #
 # 12/11/2008
 # - Removing redundant code - PrintHelp subfunction
+# - Finished first full POD documentation
+# - Dropped $Usage string, new print_help subfunction now
+#   extracts this from the the POD documentation
+# - Dropped the function LoadDrosGPI. This was made redundant
+#   by external annotation routines.
+# - Removed old getopt short code
+# - Printing status information to STDERR instead of STDOUT
+# - Adding command line variables
+#    --password --> database user password
+# - Dropping 
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
