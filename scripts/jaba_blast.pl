@@ -1,30 +1,27 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# RepMiner : jabablast.pl                                   |
-# JAMIE'S ALL BY ALL BLAST to IDENTIFY REPEATS              |
+# jaba_blast.pl - Parse All by All blast results            |
 #                                                           |
 #-----------------------------------------------------------+
+#                                                           |
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: jestill_at_sourceforge.net                       |
 # STARTED: 06/14/2006                                       |
-# UPDATED: 06/27/2007                                       |
+# UPDATED: 12/11/2008                                       |
 #                                                           |
 # SHORT DESCRIPTION:                                        |
 #  All by all blast analysis program. Creates matrix and    |
 #  text files describing graph ready for analysis in        |
 #  the Cytoscape graph visualization program.               |
 #                                                           |
-# DEPENDENCIES:                                             |
-#  -BioPERL                                                 |
-#  -NCBI BLAST                                              |
-#  -GD                                                      |
-#  -MySQL                                                   |
-#                                                           |
 # USAGE:                                                    |
 #  jabablast.pl -h For full usage                           |
 #                                                           |
 #-----------------------------------------------------------+
+# Path variable for cytoscape
+#   - also allow for env options
+#
 # [ ] Add ability to use identity or bit score for the
 #     parsing of the BLAST.
 #     This will go to the function ParseTabBlast
@@ -35,36 +32,53 @@
 
 # Set the package name to RepMiner
 
-package RepMiner::jabablast;
-
-print "The RepMiner jabablast program has started\n";
+package REPMINER;
 
 #-----------------------------+
 # INCLUDES                    |
 #-----------------------------+
-
 #use Graph::TransitiveClosure::Matrix;
 use Graph;
 use strict;                    # Gotta behave
-use GD;                        # Draw using the GD program
+#use GD;                        # Draw using the GD program, 
 use DBI();                     # Database interface
-use Getopt::Std;               # Get options from the command line
+#use Getopt::Std;               # Get options from the command line
 use Bio::SearchIO;             # Parse BLAST output
+use Getopt::Long;              # Get options from command line
+# The following needed for printing help
+use Pod::Select;               # Print subsections of POD documentation
+use Pod::Text;                 # Print POD doc as formatted text file
+use IO::Scalar;                # For print_help subfunction
+use IO::Pipe;                  # Pipe for STDIN, STDOUT for POD docs
+use File::Spec;                # Convert a relative path to an abosolute path
+
+#-----------------------------+
+# PROGRAM VARIABLES           |
+#-----------------------------+
+my ($VERSION) = q$Rev$ =~ /(\d+)/;
+
+#-----------------------------+
+# TEMP FIX                    |
+#-----------------------------+
+my $Config;
+my $LaunchCytoscape;
+my $RunGraphviz;
+my $CreateMatrix;
 
 #-----------------------------+
 # GENERAL USE PROGRAM VARS    |
 #-----------------------------+
-my $XCrd;                      # Query coordinate (X coord)
-my $YCrd;                      # Hit coordingate (Y coord)
+my $XCrd;                      # Query coordinate seq id (X coord)
+my $YCrd;                      # Hit coordinate, seq id (Y coord)
 my $QryName;                   # Name of the query
 
 #-----------------------------+
 # ALL-BY-ALL BLAST            |
 #-----------------------------+
-my $AllByAll;                  # Path to AllByAll blast output file
-my $A_MinQryLen;               # Minimum query length for all by all blast
-my $A_MinScore;                # Minimum Bit Score for all by all blast
-my $A_MaxE;                    # Maximum E value for all by all blast
+my $in_aba_blast;              # Path to AllByAll blast output file
+my $A_MinQryLen = "50";        # Minimum query length for all by all blast
+my $A_MinScore = "150";        # Minimum Bit Score for all by all blast
+my $A_MaxE = "1.0e-05";        # Maximum E value for all by all blast
 my $ResultCount = 0;           # Result count for BLAST
 my $MinHitLen = "20";          # The minimum hit length to consider
 my @BlastMatrix;               # Array to hold the blast results
@@ -84,9 +98,9 @@ my $HitLength;
 #-----------------------------+
 # Currently only a repeat based classification is allowed
 my $RepBLAST;                  # Path to Blast against repeat DBs
-my $MinQryLen;                 # Minimum query length for blast to repDb
-my $MinScore;                  # Minimum Bit score for blast to repDb
-my $MaxE;                      # Maximum E value for blast to repDb
+my $MinQryLen = "50";          # Minimum query length for blast to repDb
+my $MinScore = "50";           # Minimum Bit score for blast to repDb
+my $MaxE = "1.0e-03";          # Maximum E value for blast to repDb
 my $RepBlastDb;                # Name of repeat database used to classify hits
 
 #-----------------------------+
@@ -102,9 +116,9 @@ my $Name;
 #-----------------------------+
 # MATRIX                      |
 #-----------------------------+
-my $xsc;                       # X base scale for drawing matrix (integer >1)
-my $ysc;                       # Y base scale for drawing matrix (integer >1)
-my $pxs;                       # Number of pixels to draw "dot" in matrix
+my $xsc = "2";                 # X base scale for drawing matrix (integer >1)
+my $ysc = "2";                 # Y base scale for drawing matrix (integer >1)
+my $pxs = "4";                 # Number of pixels to draw "dot" in matrix
 my $MaxVal = 0;                # Max value to determine the coordinates
                                # of the hit matrix
 
@@ -113,7 +127,7 @@ my $MaxVal = 0;                # Max value to determine the coordinates
 #-----------------------------+
 my $NetDir;                    # Directory for network files
 my $NetName;                   # Name of the *.sif file
-my $GraphDir;                  # Directions of edges in graph
+my $GraphDir = "0";            # Directions of edges in graph
 my $BlastFormat;               # Foramt of the blast file
                                # ie m = 0,8, or 9
 
@@ -123,8 +137,96 @@ my $BlastFormat;               # Foramt of the blast file
 my $DbUserName;                # Database user name
 my $DbUserPassword;            # Database user password
 my $DbName;                    # Database name
-my $tblAllByAll;               # Database table to store All by All Blast
-my $tblQryCat;                 # Database table to store blast to repDB
+my $tblAllByAll = "tblAllByAll";  # Database table to store All by All Blast
+my $tblQryCat = "tblRepeatID";    # Database table to store blast to repDB
+
+
+#/////////////////////////////////////
+# WORKING ON THE FOLLOWING
+#/////////////////////////////////////
+# BOOLEANS
+my $verbose = 0;
+my $line_num = 0;
+my $quiet = 0;
+my $show_usage = 0;
+my $show_version = 0;
+my $show_man = 0;
+my $show_help = 0; 
+
+
+my $ok = GetOptions(# REQUIRED OPTIONS
+                    #"i|infile=s"    => \$infile,
+                    #"o|outfile=s"   => \$outfile,
+		    "i|infile=s"    => \$in_aba_blast,
+		    "o|outdir=s"    => \$NetDir,
+		    "Z|config=s"    => \$Config,  # Config file path
+                    # ADDITIONAL OPTIONS
+		    # DATABASE VARIABLES
+		    "b=s"           => \$DbName,
+		    "u=s"           => \$DbUserName,
+		    # General variables
+		    "f=s"           => \$NetName,
+		    # GRAPH OPTIONS
+		    "d=s"           => \$GraphDir, # Graph direction
+		    # BLAST OPTIONS
+		    "m=s"           => \$BlastFormat,
+		    # ALL BY ALL 
+		    "l=s"           => \$A_MinQryLen,
+		    "s=s"           => \$A_MinScore,
+		    "e=s"           => \$A_MaxE,
+		    # CATEGORIZATION BLAST VARS
+		    "r=s"           => \$RepBLAST,
+		    "cat-len=s"     => \$MinQryLen,
+		    "cat-score=s"   => \$MinScore,
+		    "cat-maxe=s"    => \$MaxE,
+		    "N=s"           => \$RepBlastDb,
+                    # DATABASE OPTIONS
+		    "a=s"           => \$tblAllByAll,
+		    "c=s"           => \$tblQryCat,
+		    # MATRIX OPTIONS
+		    "x=i"          => \$xsc,
+		    "y=i"          => \$ysc,
+                    "p=i"          => \$pxs,
+                    # BOOLEANS
+		    "launch-cyto"   => \$LaunchCytoscape, 
+		    "run-graphiz"   => \$RunGraphviz,
+		    "create-matrix" => \$CreateMatrix,
+                    # ADDITIONAL INFORMATION
+                    "q|quiet"       => \$quiet,
+                    "verbose"       => \$verbose,
+                    "usage"         => \$show_usage,
+                    "version"       => \$show_version,
+                    "man"           => \$show_man,
+                    "h|help"        => \$show_help,);
+
+
+
+
+#-----------------------------+
+# SHOW REQUESTED HELP         |
+#-----------------------------+
+if ( ($show_usage) ) {
+#    print_help ("usage", File::Spec->rel2abs($0) );
+    print_help ("usage", $0 );
+}
+
+if ( ($show_help) || (!$ok) ) {
+#    print_help ("help",  File::Spec->rel2abs($0) );
+    print_help ("help",  $0 );
+}
+
+if ($show_man) {
+    # User perldoc to generate the man documentation.
+    system ("perldoc $0");
+    exit($ok ? 0 : 2);
+}
+
+if ($show_version) {
+    print "\n$0\n".
+	"Version: $VERSION\n\n";
+    exit;
+}
+
 
 #-----------------------------------------------------------+
 # COMMAND LINE VARIABLES                                    |
@@ -165,32 +267,40 @@ getopts('a:b:c:d:e:f:hi:k:l:m:n:o:r:s:u:x:y:CE:GL:N:S:MQZ:', \%Options);
 # This should be changed to allow for the option of visualizing the
 # AllByAll BLAST results without the repeat data categorization path.
 # THe output dir should include the / at the end of the DIR PAth
-my $PrintHelp = $Options{h};
-my $Config = $Options{Z};
-if ($Config){
-    print "\n\nThe config file is:\n\t$Config\n\n";}
-my $quiet = $Options{Q};
-my $CreateMatrix = $Options{M};
-my $LaunchCytoscape = $Options{C};
-my $RunGraphviz = $Options{G};
+#my $PrintHelp = $Options{h};
+#my $Config = $Options{Z};
+#if ($Config){
+#    print "\n\nThe config file is:\n\t$Config\n\n";}
+#my $quiet = $Options{Q};
+#my $CreateMatrix = $Options{M};
+#my $LaunchCytoscape = $Options{C};
+#my $RunGraphviz = $Options{G};
 
 #-----------------------------+
 # PRINT HELP IF REQUESTED     |
 #-----------------------------+
-if ($PrintHelp)
-{
-    &PrintHelp;
-    exit;
-}
+#if ($PrintHelp)
+#{
+#    &PrintHelp;
+#    exit;
+#}
 
 #-----------------------------+
 # SET VARIABLES               | 
 #-----------------------------+
+
+
+
+
+
+
+
+
+
 # If a config file path was given set the user variables
 # using the config file, otherwise get all options
 # from the command line.
-if ($Config)
-{
+if ($Config) {
 
     # DATABASE VARIABLES
     $DbUserName = &ParseConfigFile($Config,"DbUserName");
@@ -198,7 +308,7 @@ if ($Config)
     $NetDir = &ParseConfigFile($Config,"NetDir");
     
     # INPUT/OUTPUT FILES
-    $AllByAll = &ParseConfigFile($Config,"BLAST_AllByAll");
+    $in_aba_blast = &ParseConfigFile($Config,"BLAST_AllByAll");
     $RepBLAST = &ParseConfigFile($Config,"BLAST_RepDB");
     $NetName = &ParseConfigFile($Config,"NetName") ||
 	"Network"; # Added a default name 
@@ -235,56 +345,56 @@ if ($Config)
     
 }else{
 
-    $DbUserName = $Options{u} ||
-	die "You must provide a database user name\n$Usage\n";
-    $DbName = $Options{b} ||
-	die "You must provide a database name to connect to";
-    $AllByAll = $Options{i} || 
-	die "You must provide an AllByAll BLAST output path\n$Usage\n";
-    $NetDir = $Options{o} ||
-	die "You must provide an output Directory path\n$Usage\n";
-    $NetName = $Options{f} || "Network"; # Default network name is Network
+#    $DbUserName = $Options{u} ||
+#	die "You must provide a database user name\n$Usage\n";
+#    $DbName = $Options{b} ||
+#	die "You must provide a database name to connect to";
+#    $in_aba_blast = $Options{i} || 
+#	die "You must provide an AllByAll BLAST output path\n$Usage\n";
+#    $NetDir = $Options{o} ||
+#	die "You must provide an output Directory path\n$Usage\n";
+#    $NetName = $Options{f} || "Network"; # Default network name is Network
 
-    #-----------------------------+
-    # GRAPH OPTIONS               |
-    #-----------------------------+
-    $GraphDir = $Options{d} || "0";
+#    #-----------------------------+
+#    # GRAPH OPTIONS               |
+#    #-----------------------------+
+#    $GraphDir = $Options{d} || "0";
 
     #-----------------------------+
     # BLAST OPTIONS               |
     #-----------------------------+
-    $BlastFormat = $Options{m} || "8";
+#    $BlastFormat = $Options{m} || "8";
     # ALL BY ALL BLAST VARS
-    $A_MinQryLen = $Options{l} || "50";
-    $A_MinScore = $Options{s} || "150";
-    $A_MaxE = $Options{e} || "1.0e-05";
+#    $A_MinQryLen = $Options{l} || "50";
+#    $A_MinScore = $Options{s} || "150";
+#    $A_MaxE = $Options{e} || "1.0e-05";
 
     #-----------------------------+
     # CATEGORIZATION BLAST VARS   |
     #-----------------------------+
     # Currently limited to repeat database blast, other
     # node categorizatioin algorithms should be considered
-    $RepBLAST = $Options{r};
-    $MinQryLen = $Options {L} || "50";
-    $MinScore = $Options{S} || "50";
-    $MaxE = $Options{E} || "1.0e-03";
-    $RepBlastDb = $Options{N};      # Name of repeat DB
-                                    # only needed for tab blast
+    #$RepBLAST = $Options{r};
+    #$MinQryLen = $Options {L} || "50";
+    #$MinScore = $Options{S} || "50";
+    #$MaxE = $Options{E} || "1.0e-03";
+    #$RepBlastDb = $Options{N};      # Name of repeat DB
+    #                                # only needed for tab blast
     
     #-----------------------------+
     # DATABASE OPTIONS            |
     #-----------------------------+
-    # Table with All by All BLAST results        
-    $tblAllByAll = $Options{a} || "tblAllByAll";      
-    # Table with repeat ID BLAST results
-    $tblQryCat = $Options{c} || "tblRepeatID";
+#    # Table with All by All BLAST results        
+#    $tblAllByAll = $Options{a} || "tblAllByAll";      
+#    # Table with repeat ID BLAST results
+#    $tblQryCat = $Options{c} || "tblRepeatID";
 
     #-----------------------------+
     # MATRIX OPTIONS              |
     #-----------------------------+
-    $xsc = $Options{x} || "2";    # The X coordinate scaling factor
-    $ysc = $Options{y} || "2";    # The Y coordinate scaling factor
-    $pxs = $Options{p} || "4";    # Pixel size of the matched dots
+#    $xsc = $Options{x} || "2";    # The X coordinate scaling factor
+#    $ysc = $Options{y} || "2";    # The Y coordinate scaling factor
+#    $pxs = $Options{p} || "4";    # Pixel size of the matched dots
     
     
 } # END OF GETTING INFO FROM COMMAND LINE
@@ -298,7 +408,7 @@ if ($Config)
 print "NETDIR:\n\t$NetDir\n";
 print "NETNAME:\n\t$NetName\n";
 
-print "ALLBYALL:\n\t$AllByAll\n";
+print "ALLBYALL:\n\t$in_aba_blast\n";
 print "A_MinQryLen:\n\t$A_MinQryLen\n";
 print "A_MinScore:\n\t$A_MinScore\n";
 print "A_MaxE:\n\t$A_MaxE\n";
@@ -451,10 +561,10 @@ print "Database setup.\n";
 if ($BlastFormat == '8') {
 
     # Parse AxA to SIF Files
-    &ParseTabBLAST ($AllByAll);
+    &ParseTabBLAST ($in_aba_blast);
 
     # Parse AxA to Graph Object and Classify
-    &ParseTabBLAST2Graph ($AllByAll);
+    &ParseTabBLAST2Graph ($in_aba_blast);
 
 }
 # AT WORK HERE THIS WILL LOAD TAB DELIMITED ALL BY ALL BLAST
@@ -547,8 +657,7 @@ exit;
 #                                                           |
 #-----------------------------------------------------------+
 
-sub ParseConfigFile
-{
+sub ParseConfigFile {
 #-----------------------------------------------------------+
 # This will parase a configuration text file to set         |
 # variables that would normally be set at the command line  |
@@ -579,8 +688,7 @@ sub ParseConfigFile
 
 }
 
-sub GetMaxVal
-{
+sub GetMaxVal {
 #-----------------------------+
 # SELECTS THE MAXIMUM VALUE   |
 # FROM A COLUMN AND RETURNS   |
@@ -599,8 +707,7 @@ sub GetMaxVal
     return $result;
 }
 
-sub UpdateRepCat
-{
+sub UpdateRepCat {
     
     print "Updating categories in ".$tblAllByAll."\n";
     
@@ -614,8 +721,7 @@ sub UpdateRepCat
 }
 
 
-sub DbSetup
-{
+sub DbSetup {
 #-----------------------------+
 # SET UP THE DATABASE BY      |
 # MAKING TABLES IF NEEDED     |
@@ -690,8 +796,7 @@ sub DbSetup
 
 
 
-sub LoadDrosGPI
-{
+sub LoadDrosGPI {
 #-----------------------------+
 # LOAD BLASTX OUTPUT FROM THE |
 # DROSOPHILA GAG/POL/INTEGRASE|
@@ -1009,8 +1114,7 @@ sub LoadRepClass
 
 # Begin to work with tab delimited -m8 or -m9 format output
 
-sub LoadTabRepClassNew
-{
+sub LoadTabRepClassNew {
     # Only the first hit from the BLAST is used here
     # Since the variables are not the same as the 
     # SeqIO objects, this code will need to be modified
@@ -1276,8 +1380,7 @@ sub LoadTabRepClassNew
 
 }
 
-sub LoadTabRepClass
-{
+sub LoadTabRepClass {
     my $BlastDB = $_[0];
 
     print "Defining repeat classes using tab delim blast report.\n";
@@ -1566,8 +1669,7 @@ sub LoadTabRepClass
 
 }
 
-sub ParseTabBLAST
-{
+sub ParseTabBLAST {
 #-----------------------------+
 # LOAD A TAB DELIMITED ALL BY |
 # ALL BLAST REPORT            |
@@ -1804,14 +1906,10 @@ sub ParseTabBLAST
 
 
 
-sub ParseTabBLAST2Graph
-{
+sub ParseTabBLAST2Graph {
 
 # Currently this will only work for undirected graph
-
-
 # For an undirected graph we want the connected_componenest
-
 
 # For a directed graph we can choose the
 # strongly_connected_components   OR 
@@ -2328,8 +2426,7 @@ sub ParseTabBLAST2Graph
 } # End of ParseTabBlast subfunction
 
 
-sub LoadAllByAll
-{
+sub LoadAllByAll {
 #-----------------------------+
 # LOAD RESULT OF ALL BY ALL   |
 # BLAST TO THE DATABASE       |
@@ -2341,12 +2438,12 @@ sub LoadAllByAll
 # TO EXPLORING THE RESULTS OF AN ALL BY ALL BLAST
 #
     my $BlastReport = new Bio::SearchIO ( '-format' => 'blast',
-					  '-file'   => $AllByAll, 
+					  '-file'   => $in_aba_blast, 
 					  '-signif' => $A_MaxE, 
 					  '-min_query_len' => $A_MinQryLen,
 					  '-score' => $A_MinScore ) 
 	||
-        die "Could not open BLAST input file:\n$AllByAll.\n";
+        die "Could not open BLAST input file:\n$in_aba_blast.\n";
     
     while ($BlastResult = $BlastReport->next_result())
     {
@@ -2514,8 +2611,7 @@ sub LoadAllByAll
 } # End of Load All By All Subfunction
 
 
-sub does_table_exist
-{
+sub does_table_exist {
 #-----------------------------+
 # CHECK IF THE MYSQL TABLE    |
 # ALREADY EXISTS              |
@@ -2538,8 +2634,7 @@ sub does_table_exist
 }
 
 
-sub how_many_records
-{
+sub how_many_records {
 #-----------------------------+
 # COUNT HOW MANY RECORDS      |
 # EXIST IN THE MYSQL TABLE    |
@@ -2564,8 +2659,7 @@ sub how_many_records
 }
 
 
-sub FetchSeqInfo
-{
+sub FetchSeqInfo {
 #-----------------------------+
 # FETCH THE BAC ID GIVEN THE  |
 # TABLE AND ID TO FETCH       |
@@ -2592,8 +2686,7 @@ sub FetchSeqInfo
 }
 
 
-sub UserFeedback
-{
+sub UserFeedback {
 #-----------------------------+
 # USER FEEDBACK SUBFUNCTION   |
 #-----------------------------+
@@ -2603,29 +2696,24 @@ sub UserFeedback
 
   print "\n$Question \n";
 
-  while (<>)
-    {
+  while (<>) {
       chop;
-      if ( ($_ eq 'y') || ($_ eq 'Y') || ($_ eq 'yes') || ($_ eq 'YES') )
-	{
+      if ( ($_ eq 'y') || ($_ eq 'Y') || ($_ eq 'yes') || ($_ eq 'YES') ) {
 	  $Answer = "Y";
 	  return $Answer;
-	}
-      elsif ( ($_ eq 'n') || ($_ eq 'N') || ($_ eq 'NO') || ($_ eq 'no') )
-	{
+      }
+      elsif ( ($_ eq 'n') || ($_ eq 'N') || ($_ eq 'NO') || ($_ eq 'no') ) {
 	  $Answer = "N";
 	  return $Answer;
-	}
-      else
-	{
+      }
+      else {
 	  print "\n$Question \n";
-	}
-    }
-
+      }
+  }
+  
 }
 
-sub LaunchCytoscapeOld
-{
+sub LaunchCytoscapeOld {
 #-----------------------------+
 # LAUNCH CYTOSCAPE WITH THE   |
 # EDGE ATTRIBUTES AND NODE    |
@@ -2663,8 +2751,7 @@ sub LaunchCytoscapeOld
 }
 
 
-sub LaunchCytoscapeNew
-{
+sub LaunchCytoscapeNew {
 #-----------------------------+
 # NEW VERSION OF THE LAUNCH   |
 # CYTOSCAPE FOR VERSION 2.3   |
@@ -2705,8 +2792,7 @@ sub LaunchCytoscapeNew
 
 }
 
-sub LaunchCytoscape_2_4
-{
+sub LaunchCytoscape_2_4 {
 # Added
 # 04/04/2007
 #-----------------------------+
@@ -2762,8 +2848,7 @@ sub LaunchCytoscape_2_4
 
 }
 
-sub GetWesClass
-{
+sub GetWesClass {
 #-----------------------------+
 # GETS THE TERMINAL           |
 # CLASSIFICATION NAME FOR HITS|
@@ -2813,8 +2898,7 @@ sub GetWesClass
     return $cl;   
 }
 
-sub GetTREPClass
-{
+sub GetTREPClass {
 #-----------------------------+
 # GET THE CLASSIFICATION OF   |
 # AN ELEMENT GIVEN THE TREP   |
@@ -2841,8 +2925,7 @@ sub GetTREPClass
 }
 
 
-sub GetTREPName
-{
+sub GetTREPName {
     
     my $qry = $_[0];        # The qry code sent to the subfunction
     my $cl;                 # The classification that is returned
@@ -2863,8 +2946,7 @@ sub GetTREPName
 
 }
 
-sub GetTIGRClass
-{
+sub GetTIGRClass {
 
     #-----------------------------+
     # PARSE TIGR REPEAT CODES     |
@@ -2885,8 +2967,9 @@ sub GetTIGRClass
 
     # IF THE TIGR FORMAT IS MALFORMED THEN SHOW
     # THE QUERY STRING THAT WAS SEND FOR LOOKUP
-    if ($code =~ "BAD FORMAT")
-    {print "BAD TIGR FORMAT\t".$qry."\n";}
+    if ($code =~ "BAD FORMAT") {
+	print "BAD TIGR FORMAT\t".$qry."\n";
+    }
 
     #-----------------------------+
     # HASH TO TRANSLATE FROM TIGR |
@@ -2991,8 +3074,7 @@ sub GetTIGRClass
 
 }
 
-sub GetRBClass
-{
+sub GetRBClass {
 #-----------------------------+
 # GET REPEAT BASE CLASS       |
 #-----------------------------+
@@ -3067,8 +3149,7 @@ sub GetRBClass
 
 }
 
-sub DrawXYPlot 
-{
+sub DrawXYPlot {
 #-----------------------------+
 # DRAW COLOR VALUED X-Y PLOT  |
 # OF THE SPARSE MATRIX        |
@@ -3206,159 +3287,123 @@ sub DrawXYPlot
 
 }
 
-#-----------------------------------------------------------+
-# FUNCTIONS                                                 |
-#-----------------------------------------------------------+
 
-#-----------------------------+
-# FUNCTIONS TO REMOVE         |
-# WHITE SPACES FROM A STRING  |
-#-----------------------------+
-
-# Removoe trailing and 
-# Code from:
-# http://www.somacon.com/p114.php
-
-# Perl trim function to remove whitespace from the start and end of the string
-
-sub trim($)
-	 {
-	     my $string = shift;
-	     $string =~ s/^\s+//;
-	     $string =~ s/\s+$//;
-	     return $string;
-	 }
-# Left trim function to remove leading whitespace
-
-sub ltrim($)
-	  {
-	      my $string = shift;
-	      $string =~ s/^\s+//;
-	      return $string;
-	  }
-# Right trim function to remove trailing whitespace
-
-sub rtrim($)
-	  {
-	      my $string = shift;
-	      $string =~ s/\s+$//;
-	      return $string;
-	  }
-
-sub PrintHelp
-{
-    
-    my $FullUsage = "EXAMPLES:\n".
-	"jabablast.pl -i AllByAllBlast.blo -r RepElementBlast.blo\n". 
-	"-o OutputDir -u UserName -d DatabaseName -Q\n\n".
-	"OR \n".
-	"jabablast.pl -C ConfigFile.jcfg\n\n".
-	"+-----------------------------------------------------------+\n".
-	"| REQUIRED ARGUMENTS                                        |\n".
-	"+-----------------------------------------------------------+\n".
-	" -i The AllByAllBlast File to parse [string]\n".
-	" -r The BLAST results against known repeats [string]\n".
-	" -o The path of the output directory [string]\n".
-	" -u The user name for connection to the database [string]\n".
-	" -d The database name to use for the database connection. [string]\n".
-	"    This database MUST already exist in you MySQL database.\n".
-	"  OR\n".
-	" -Z Config file that provides the above information. [string]\n".
-	"+-----------------------------------------------------------+\n".
-	"| ADDITIONAL ARGUMENTS                                      |\n".
-	"+-----------------------------------------------------------+\n".
-	" -f The name of the output sif file. [string]\n".
-	"    default = Network\n".
-	" -G Produce GraphViz output".
-	" -Q Run program in quiet mode. [boolean flag]\n".
-	"    default = Not quiet\n".
-	" -B Use the database for classification information [boolean flag]\n".
-	"    Many of the following options require a database\n".
-	"    Without a database, only an all by all BLAST can be \n".
-	"    visualized without classification into repeat categories\n".
-	" -C Open Cytoscape to view the output [boolean flag]\n".
-	"    default = Cytoscape not opened.\n".
-	"+-----------------------------+\n".
-	"| MATRIX OPTIONS              |\n".
-	"+-----------------------------+\n".
-	" The matrix creation portion of jabablast may be dropped\n".
-	" in the future to simplify the command line options.\n".
-	" -M Create visualization of all by all BLAST matrix [boolean flag]\n".
-	"    default = F\n".
-	"    This is useful for visualiztion of small sets of ordered seqs.\n".
-	" -x Matrix X axis scaling factor [positive integer]\n".
-	"    default = 2\n".
-	" -y Matrix Y axis scalign factor [positive integer]\n".
-	"    default = 2\n".   
-	" -p Matrix Pixel size [positive integer]\n".
-	"    default =3\n".
-	"+-----------------------------+\n".
-	"| DATABASE OPTIONS            |\n".
-	"+-----------------------------+\n".
-	" -a The table name to use for the all by all blast\n".
-	"    in the databse[string]\n".
-	"    default = tblAllByAll\n".
-	" -c The table name to use for the known repeat classification\n".
-	"    table in the database [string]\n".
-	"    default = tblRepeatID\n".
-	"+-----------------------------+\n".
-	"| BLAST OPTIONS               |\n".
-	"+-----------------------------+\n".
-	" -m blast output aligment view. [Integer 0,8, or 9]\n".
-	"    This matches the -m flag from NCBI blastall\n".
-	"    -m 0 = pairwise\n".
-	"    -m 8 = tabular (default)\n".
-	"    -m 9 = tabular with comment lines\n".
-	"    default = -m 8\n".  
-	" -e Max e value for All by All BLAST results.\n".
-	"    default = 1.0e-05\n".
-	" -s Minimum bit score for All by All BLAST results.[Integer]\n".
-	"    default = 50\n".
-	" -l Mimimum length of the query sequence in All by All BLAST\n".
-	"    default = 150\n".
-	" -r The BLAST results against known repeats [String]\n".
-	" -E Max e-value for BLAST against repeat database.\n".
-	"    default = 1.0e-03".
-	" -S Minimum bit score for BLAST against repeat database.\n".
-	"    default = 50\n".
-	" -L Minimum length of the query sequence against the repeat".
-	" database.\n".
-	"    default = 50\n".
-	"+-----------------------------+\n".
-	"| GRAPH OPTIONS               |\n".
-	"+-----------------------------+\n".
-	" -d Graph edge direction.\n".
-	"    Currently only supported for tab delim blast\n".
-	"    0 = undirected (i < j)\n".
-	"    1 = undirected (i =! j)\n".
-	"    2 = undirected (all i,j)\n".
-	"        Reciprocal hits reduced to one edge.\n".
-	"    3 = directed (i < j)\n".
-	"    4 = directed (i =! j)\n".
-	"    5 = directed (all i,j)\n".
-	" -n Graph node attributes\n".
-	"    The graph node attributes to\n".
-	" -g Graph algorithm.\n".
-	"    Not currently implemented.\n".
-	" -k K best blast hits used\n.".
-	"    Not currently implemented.\n".
-	" -w Graph edge weight\n".
-	"    0 unweighted\n".
-	"    Graph edge algorithm\n".             # ie K best blast etc.
-	"\n";
-
-print $FullUsage;
-
+sub trim($) {
+    # Remove leading AND trailing whitespace
+    my $string = shift;
+    $string =~ s/^\s+//;
+    $string =~ s/\s+$//;
+    return $string;
 }
+
+
+sub ltrim($) {
+    # Left trim function to remove leading whitespace
+    my $string = shift;
+    $string =~ s/^\s+//;
+    return $string;
+}
+
+
+sub rtrim($) {
+    # Right trim function to remove trailing whitespace
+    my $string = shift;
+    $string =~ s/\s+$//;
+    return $string;
+}
+
+
+sub print_help {
+    my ($help_msg, $podfile) =  @_;
+    # help_msg is the type of help msg to use (ie. help vs. usage)
+    
+    print "\n";
+    
+    #-----------------------------+
+    # PIPE WITHIN PERL            |
+    #-----------------------------+
+    # This code made possible by:
+    # http://www.perlmonks.org/index.pl?node_id=76409
+    # Tie info developed on:
+    # http://www.perlmonks.org/index.pl?node=perltie 
+    #
+    #my $podfile = $0;
+    my $scalar = '';
+    tie *STDOUT, 'IO::Scalar', \$scalar;
+    
+    if ($help_msg =~ "usage") {
+	podselect({-sections => ["SYNOPSIS|MORE"]}, $0);
+    }
+    else {
+	podselect({-sections => ["SYNOPSIS|ARGUMENTS|OPTIONS|MORE"]}, $0);
+    }
+
+    untie *STDOUT;
+    # now $scalar contains the pod from $podfile you can see this below
+    #print $scalar;
+
+    my $pipe = IO::Pipe->new()
+	or die "failed to create pipe: $!";
+    
+    my ($pid,$fd);
+
+    if ( $pid = fork() ) { #parent
+	open(TMPSTDIN, "<&STDIN")
+	    or die "failed to dup stdin to tmp: $!";
+	$pipe->reader();
+	$fd = $pipe->fileno;
+	open(STDIN, "<&=$fd")
+	    or die "failed to dup \$fd to STDIN: $!";
+	my $pod_txt = Pod::Text->new (sentence => 0, width => 78);
+	$pod_txt->parse_from_filehandle;
+	# END AT WORK HERE
+	open(STDIN, "<&TMPSTDIN")
+	    or die "failed to restore dup'ed stdin: $!";
+    }
+    else { #child
+	$pipe->writer();
+	$pipe->print($scalar);
+	$pipe->close();	
+	exit 0;
+    }
+    
+    $pipe->close();
+    close TMPSTDIN;
+
+    print "\n";
+
+    exit 0;
+   
+}
+
+__END__;
+
+
+__END__;
 
 =head1 NAME
 
-jaba_blast.pl - Parse All by All blast results 
+jaba_blast.pl - Parse All by All BLAST results
+
+=head1 VERSION
+
+This documentation refers to jaba_blast.pl version $Rev$
 
 =head1 SYNOPSIS
 
-    jabablast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
-                 -b dbName -f Network.sif
+=head2 Usage
+
+    jaba_blast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
+                  -b dbName -f Network.sif
+
+=head2 Required Arguments
+
+    -i  # Path to the all by all blast result
+    -r  # Path the blast results against a classification db
+    -o  # Base output directory
+    -u  # Username for connected to the database
+    -b  # Database name
+    -f  # Name for the cytoscape network file that is created 
 
 =head1 DESCRIPTION
 
@@ -3389,11 +3434,7 @@ The repeat databases that jabablast can use include:
 
 =back
 
-=head1 ARGUMENTS
-
-Not all of the following arguments are currently implemented. 
-
-=head2 Required Arguments
+=head1 REQUIRED ARGUMENTS
 
 =over 2
 
@@ -3425,9 +3466,11 @@ default = Network.sif
 
 =back
 
+=head1 OPTIONS
+
 =head2 Boolean Arguments
 
-=over2
+=over 2
 
 =item -Q
 
@@ -3594,6 +3637,149 @@ Graph edge weight option:
 
 =back
 
+=head1 EXAMPLES
+
+=head2 Typical Use
+
+The typical use of the jaba_blast.pl program is to parse the output of
+an all by all blast report.
+
+ jaba_blast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
+               -b dbName -f Network.sif
+
+=head1 DIAGNOSTICS
+
+Error messages generated by this program and possible solutions are listed
+below.
+
+=head2 Example Error message
+
+Information and solutions
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+This script does not make use of external configuration files
+or any options in the user environment. File paths to external programs
+will be added in the near future as variables that can be set
+in the user environment.
+
+=head1 DEPENDENCIES
+
+=head2 Required Software
+
+=over
+
+=item * NCBI blastall
+
+This program is designed to parse output from the NCBI blastall program.
+The latest version of the NCBI blastall program can be downloaded from:
+L<ftp://ftp.ncbi.nih.gov/blast/executables/LATEST>
+
+=item * Cytoscape
+
+The visualization of graphs is supported using the Cytoscape graph
+visualization program 
+L<http://www.cytoscape.org>
+
+=item * GD Graphics Library
+
+Drawing the all by all dot matrix requires the GD graphics library.
+L<http://www.boutell.com/gd/>
+
+=item * MySQL
+
+Currently only the MySQL database format is supported.
+L<http://www.mysql.com/>
+
+=back
+
+=head2 Required Perl Modules
+
+=over
+
+=item * Bio::SearchIO
+
+This module is part of bioperl and is required to parse BLAST
+output in a format that is tiled across all HSPs.
+
+=item * Getopt::Long
+
+This module is required to accept options at the command line.
+
+=back
+
+=head2 Required Databases
+
+This package also makes use of databases that can be fetched from external
+sources.
+
+=over 2
+
+=item * TREP
+
+L<http://wheat.pw.usda.gov/ITMI/Repeats/>
+
+=item * RepBase
+
+L<http://www.girinst.org/repbase/update/index.html>
+
+=item * SanMiguel
+
+L<http://www.genomics.purdue.edu/~pmiguel/projects/retros/>
+
+=item * TIGR Repeats
+
+L<http://www.tigr.org/tdb/e2k1/plant.repeats/>
+
+=back
+
+
+=head1 BUGS AND LIMITATIONS
+
+=head2 Bugs
+
+=over 2
+
+=item * No bugs currently known 
+
+If you find a bug with this software, file a bug report on the RepMiner
+Sourceforge website: http://sourceforge.net/tracker/?group_id=192812
+
+=back
+
+=head2 Limitations
+
+=over
+
+=item * Limited to m8 or m9 BLAST format
+
+Okay, not really but I need a holder for now.
+
+This script is designed to be a lean and fast parser of the 
+similarity information from BLAST. It is therefore limited
+to using the simple m8 or m9 BLAST alignment format.
+
+=back
+
+=head1 SEE ALSO
+
+The cnv_blast2sim.pl program is part of the repminer package of 
+repeat element annotation programs.
+See the RepMiner web page 
+( http://repminer.sourceforge.net/ )
+or the Sourceforge project page 
+( http://sourceforge.net/projects/repminer/ )
+for additional information about this package.
+
+=head1 LICENSE
+
+GNU GENERAL PUBLIC LICENSE, VERSION 3
+
+http://www.gnu.org/licenses/gpl.html
+
+THIS SOFTWARE COMES AS IS, WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY. USE AT YOUR OWN RISK.
+
 =head1 AUTHOR
 
 James C. Estill E<lt>JamesEstill at gmail.comE<gt>
@@ -3602,7 +3788,9 @@ James C. Estill E<lt>JamesEstill at gmail.comE<gt>
 
 STARTED: 06/14/2006
 
-UPDATED: 06/27/2007
+UPDATED: 12/11/2008
+
+VERSION: $Rev$
 
 =cut
 
@@ -3840,6 +4028,10 @@ UPDATED: 06/27/2007
 # 
 # 12/10/2008
 # - Rename program to jaba_blast.pl
+# - Switching to the new print_help subfunction
+#
+# 12/11/2008
+# - Removing redundant code - PrintHelp subfunction
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
