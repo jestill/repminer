@@ -239,30 +239,30 @@ if ($show_version) {
 if ($Config) {
 
     # DATABASE VARIABLES
-    $DbUserName = &ParseConfigFile($Config,"DbUserName");
-    $DbName = &ParseConfigFile($Config,"DbName");
-    $NetDir = &ParseConfigFile($Config,"NetDir");
+    $DbUserName = &ParseConfigFile($Config, uc("DbUserName") );
+    $DbName = &ParseConfigFile($Config, uc("DbName") );
+    $NetDir = &ParseConfigFile($Config, uc("NetDir") );
     
     # INPUT/OUTPUT FILES
-    $in_aba_blast = &ParseConfigFile($Config,"BLAST_AllByAll");
-    $RepBLAST = &ParseConfigFile($Config,"BLAST_RepDB");
-    $NetName = &ParseConfigFile($Config,"NetName") ||
+    $in_aba_blast = &ParseConfigFile($Config, uc("BLAST_AllByAll") );
+    $RepBLAST = &ParseConfigFile($Config, uc("BLAST_RepDB") );
+    $NetName = &ParseConfigFile($Config, uc("NetName") ) ||
 	"Network"; # Added a default name 
     
     # BLAST RELATED VARIABLES
-    $A_MinQryLen = &ParseConfigFile($Config,"A_MinQryLen")
+    $A_MinQryLen = &ParseConfigFile($Config, uc("A_MinQryLen") )
 	|| "50";
-    $A_MinScore = &ParseConfigFile($Config,"A_MinScore")
+    $A_MinScore = &ParseConfigFile($Config, uc("A_MinScore") )
 	|| "150";
-    $A_MaxE = &ParseConfigFile($Config,"A_MaxE")
+    $A_MaxE = &ParseConfigFile($Config, uc("A_MaxE") )
 	|| "1.0e-05";
     
     # CATEGORIZATION BLAST VARS
-    $MinQryLen = &ParseConfigFile($Config,"MinQryLen")
+    $MinQryLen = &ParseConfigFile($Config, uc("MinQryLen") )
 	|| "20";
-    $MinScore = &ParseConfigFile($Config,"MinScore")
+    $MinScore = &ParseConfigFile($Config, uc("MinScore") )
 	|| "50";
-    $MaxE = &ParseConfigFile($Config,"MaxE")
+    $MaxE = &ParseConfigFile($Config, uc("MaxE") )
 	|| "1.0e-03";
     
 #    # ALL BY ALL MATRIX DRAWING VARIABLES
@@ -554,10 +554,10 @@ sub ParseConfigFile {
     while (<CONFILE>)
     {
 	chomp;                 # Remove newline character
-	unless (m/\#.*/)       # Ignore comment lines
-	{
+	unless (m/\#.*/) {
 	    my @SplitLine = split;
-	    if ($SplitLine[0] =~ $VarName){
+#	    if ($SplitLine[0] =~ $VarName){
+	    if ( uc($SplitLine[0]) =~ $VarName){
 		$VarValue = $SplitLine[1];}
 	}
     }
@@ -1834,8 +1834,7 @@ sub ParseTabBLAST2Graph {
 	    $X = int($X);
 
 	    # Only load the records that have not already occured
-	    unless ($X =~ $PrevX)
-	    {
+	    unless ($X =~ $PrevX) {
 		print STDERR "Adding Node: $X\n" if $verbose;
 		$NumNodes++;
 		$g->add_vertex( $X );	
@@ -3321,8 +3320,52 @@ Information and solutions
 =head2 Configuration File
 
 The jaba_blast.pl program can make use of a configuration file to
-specify the options that are set at the command line. Lines in the 
-configuration that start with a pound sign (#) are ignored.
+specify the options that are set at the command line. This is useful
+when you want to work a large number of variables at one time.
+The path to the configuration file is specified with the --config
+option:
+
+ jaba_blast.pl --config my_config_file.txt
+
+The valid variable strings in the config file with their command line
+equivalents in brackets are:
+
+=over
+
+=item * DbUserName [--username]
+
+=item * DbName [--database]
+
+=item * NetDir [--direction]
+
+=item * BLAST_AllByAll [--infile]
+
+=item * BLAST_RepDB [-r]
+
+=item * NetName [-f]
+
+=item * A_MinQryLen [-l]
+
+=item * A_MinScore [-s]
+
+=item * A_MaxE [-e]
+
+=item * MinQryLen [--cat-len]
+
+=item * MinScore [--cat-score]
+
+=item * MaxE [--cat-maxe]
+
+=item * ABATable [-a]
+
+=item * RepeatTable [-c]
+
+=back
+
+The variable name is separated from the variable value by a white
+space of any length.
+Lines in the configuration that start with a pound sign (#) are ignored.
+The variable name and the variable value can not contain any spaces.
 An example configuration file is as follows:
 
  # VARNAME             VAR-VALUE
@@ -3467,6 +3510,33 @@ Sourceforge website: http://sourceforge.net/tracker/?group_id=192812
 =head2 Limitations
 
 =over
+
+=item * Sequence Identifiers Are Limited to Integers
+
+It is necessary that all sequenced be identified by a single unique integer
+from one to the number of squences in the database. This unique identifier
+must be offset from the rest of the fasta header with a pipe '|'. For example
+the fasta file headers:
+
+ >seq_BAC1_te_one
+ >seq_BAC1_te_two
+ >seq_BAC1_te_three
+ >seq_BAC2_te_one
+ >seq_BAC2_te_two
+
+Must be transformed to the format:
+
+ >1|seq_BAC1_te_one
+ >2|seq_BAC1_te_two
+ >3|seq_BAC1_te_three
+ >4|seq_BAC2_te_one
+ >5|seq_BAC2_te_two 
+
+These integers will be used to determine the graph direction options, 
+and will be used as the unique id when uploading sequence records
+to the database.
+Thes integers can be automatically assigned using the program 
+'fasta_add_num.pl' which is part of the RepMiner package.
 
 =item * Limited to m8 or m9 BLAST format
 
@@ -3776,6 +3846,10 @@ VERSION: $Rev$
 # - Added ENV options for cytoscape variables
 # - Updated POD to include information on ENV options
 # - Updated POD to include information on config file
+#
+# 12/12/2008
+# - Added POD documentation for configuration file
+# - Added uppercase transformation for config file var names
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
