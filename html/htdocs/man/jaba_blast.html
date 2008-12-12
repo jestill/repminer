@@ -1,9 +1,11 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>jaba_blast.pl</title>
 <link rel="stylesheet" href="http://repminer.sourceforge.net/css/repminer_man.css" type="text/css" />
-<link rev="made" href="mailto:root@localhost" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body>
@@ -45,6 +47,7 @@
 		<li><a href="#typical_use">Typical Use</a></li>
 		<li><a href="#full_process">Full Process</a></li>
 		<li><a href="#automatically_launching_cytoscape">Automatically Launching Cytoscape</a></li>
+		<li><a href="#graph_edges_direction">Graph Edges Direction</a></li>
 	</ul>
 
 	<li><a href="#diagnostics">DIAGNOSTICS</a></li>
@@ -92,7 +95,7 @@
 </p>
 <hr />
 <h1><a name="version">VERSION</a></h1>
-<p>This documentation refers to jaba_blast.pl version $Rev: 118 $</p>
+<p>This documentation refers to jaba_blast.pl version $Rev: 119 $</p>
 <p>
 </p>
 <hr />
@@ -131,58 +134,59 @@ The databases that are used by jabablast are focused on databases
 that are relevant to plants. 
 The repeat databases that jabablast can use include:</p>
 <ul>
-<li><strong><a name="item_trep">TREP (<a href="http://wheat.pw.usda.gov/ITMI/Repeats/">http://wheat.pw.usda.gov/ITMI/Repeats/</a>)</a></strong><br />
-</li>
-<li><strong><a name="item_repbase">RepBase (<a href="http://www.girinst.org/repbase/update/index.html">http://www.girinst.org/repbase/update/index.html</a>)</a></strong><br />
-</li>
-<li><strong><a name="item_sanmiguel">SanMiguel (<a href="http://www.genomics.purdue.edu/~pmiguel/projects/retros/">http://www.genomics.purdue.edu/~pmiguel/projects/retros/</a>)</a></strong><br />
-</li>
-<li><strong><a name="item_tigr">TIGR (<a href="http://www.tigr.org/tdb/e2k1/plant.repeats/">http://www.tigr.org/tdb/e2k1/plant.repeats/</a>)</a></strong><br />
-</li>
+<li><strong><a name="item_trep">TREP (<a href="http://wheat.pw.usda.gov/ITMI/Repeats/">http://wheat.pw.usda.gov/ITMI/Repeats/</a>)</a></strong>
+
+<li><strong><a name="item_repbase">RepBase (<a href="http://www.girinst.org/repbase/update/index.html">http://www.girinst.org/repbase/update/index.html</a>)</a></strong>
+
+<li><strong><a name="item_sanmiguel">SanMiguel (<a href="http://www.genomics.purdue.edu/~pmiguel/projects/retros/">http://www.genomics.purdue.edu/~pmiguel/projects/retros/</a>)</a></strong>
+
+<li><strong><a name="item_tigr">TIGR (<a href="http://www.tigr.org/tdb/e2k1/plant.repeats/">http://www.tigr.org/tdb/e2k1/plant.repeats/</a>)</a></strong>
+
 </ul>
 <p>
 </p>
 <hr />
 <h1><a name="required_arguments">REQUIRED ARGUMENTS</a></h1>
 <dl>
-<dt><strong><a name="item_%2di_allbyallblast%2eblo">-i AllByAllBlast.blo</a></strong><br />
-</dt>
+<dt><strong><a name="item__2di_allbyallblast_2eblo">-i AllByAllBlast.blo</a></strong>
+
 <dd>
-Path to the AllByAllBlast File to parse.
+<p>Path to the AllByAllBlast File to parse.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dr_repblast%2eblo">-r RepBlast.blo</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dr_repblast_2eblo">-r RepBlast.blo</a></strong>
+
 <dd>
-The BLAST results against known repeats.
+<p>The BLAST results against known repeats.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2do_outdir">-o OutDir</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2do_outdir">-o OutDir</a></strong>
+
 <dd>
-The path of the output directory.
+<p>The path of the output directory.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2du_username">-u UserName</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2du_username">-u UserName</a></strong>
+
 <dd>
-The user name for connection to the database.
+<p>The user name for connection to the database.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dd_dbname">-d dbName</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dd_dbname">-d dbName</a></strong>
+
 <dd>
-The database name to use for the database connection.
-This database MUST already exist in you MySQL database.
+<p>The database name to use for the database connection.
+This database MUST already exist in you MySQL database.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2df_network%2esif">-f Network.sif</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2df_network_2esif">-f Network.sif</a></strong>
+
 <dd>
-The name of the output network text file.[string]
-default = Network.sif
+<p>The name of the output network text file.[string]
+default = Network.sif</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <hr />
@@ -191,61 +195,63 @@ default = Network.sif
 </p>
 <h2><a name="boolean_arguments">Boolean Arguments</a></h2>
 <dl>
-<dt><strong><a name="item_%2dq%2c_%2d%2dquiet">-q, --quiet</a></strong><br />
-</dt>
+<dt><strong><a name="item__2dq_2c__2d_2dquiet">-q, --quiet</a></strong>
+
 <dd>
-Run program in quiet mode. [boolean flag]
-default = Not quiet.
+<p>Run program in quiet mode. [boolean flag]
+default = Not quiet.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2db">-B</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2db">-B</a></strong>
+
 <dd>
-Use the database for classification information [boolean flag]
+<p>Use the database for classification information [boolean flag]
 Many of the following options require a database
 Without a database, only an all by all BLAST can be 
-visualized without classification into repeat categories
+visualized without classification into repeat categories</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dg">-G</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dg">-G</a></strong>
+
 <dd>
-Produce graph with graphviz format. This will probably
+<p>Produce graph with graphviz format. This will probably
 get moved to a separate program. There are a number 
 of variables that can be set with GraphViz that would be
-useful to set at the command lined. [Added 05/16/2007]
+useful to set at the command lined. [Added 05/16/2007]</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <h2><a name="database_options">Database Options</a></h2>
 <dl>
-<dt><strong><a name="item_%2da_tblallbyall">-a tblAllByAll</a></strong><br />
-</dt>
+<dt><strong><a name="item__2da_tblallbyall">-a tblAllByAll</a></strong>
+
 <dd>
-The table name to use for the all by all blast
+<p>The table name to use for the all by all blast
 in the databse[string]
-default = tblAllByAll
+default = tblAllByAll</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dc_tblrepeatid">-c tblRepeatID</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dc_tblrepeatid">-c tblRepeatID</a></strong>
+
 <dd>
-The table name to use for the known repeat classification
+<p>The table name to use for the known repeat classification
 table in the database [string]
-default = tblRepeatID
+default = tblRepeatID</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <h2><a name="blast_options">BLAST Options</a></h2>
 <dl>
-<dt><strong><a name="item_%2dm_8">-m 8</a></strong><br />
-</dt>
+<dt><strong><a name="item__2dm_8">-m 8</a></strong>
+
 <dd>
-blast output aligment view. [Integer 0,8, or 9]
+<p>blast output aligment view. [Integer 0,8, or 9]
 This matches the -m flag from NCBI blastall
-default = -m 8
+default = -m 8</p>
 </dd>
 <dd>
 <p>-m 0 = pairwise</p>
@@ -256,100 +262,102 @@ default = -m 8
 <dd>
 <p>-m 9 = tabular with comment lines</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2de_1%2e0e%2d05">-e 1.0e-05</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2de_1_2e0e_2d05">-e 1.0e-05</a></strong>
+
 <dd>
-Max e value for All by All BLAST results.
-default = 1.0e-05
+<p>Max e value for All by All BLAST results.
+default = 1.0e-05</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2ds_50">-s 50</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2ds_50">-s 50</a></strong>
+
 <dd>
-Minimum bit score for All by All BLAST results.[Integer]
-default = 50
+<p>Minimum bit score for All by All BLAST results.[Integer]
+default = 50</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dl_150">-l 150</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dl_150">-l 150</a></strong>
+
 <dd>
-Mimimum length of the query sequence in All by All BLAST
-default = 150
+<p>Mimimum length of the query sequence in All by All BLAST
+default = 150</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2de_1%2e0e%2d03">-E 1.0e-03</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2de_1_2e0e_2d03">-E 1.0e-03</a></strong>
+
 <dd>
-Max e-value for BLAST against repeat database.
-default = 1.0e-03
+<p>Max e-value for BLAST against repeat database.
+default = 1.0e-03</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2ds_50">-S 50</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2ds_50">-S 50</a></strong>
+
 <dd>
-Minimum bit score for BLAST against repeat database.
-    default = 50
+<p>Minimum bit score for BLAST against repeat database.
+    default = 50</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dl_50">-L 50</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dl_50">-L 50</a></strong>
+
 <dd>
-Minimum length of the query sequence against the repeat database.
-default = 50
+<p>Minimum length of the query sequence against the repeat database.
+default = 50</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <h2><a name="cytoscape_options">Cytoscape Options</a></h2>
 <dl>
-<dt><strong><a name="item_%2d%2dcyto%2dlaunch">--cyto-launch</a></strong><br />
-</dt>
+<dt><strong><a name="item__2d_2dcyto_2dlaunch">--cyto-launch</a></strong>
+
 <dd>
-When finished, launch the Cytoscape program to 
-view the output.
+<p>When finished, launch the Cytoscape program to 
+view the output.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2d%2dcyto%2dpath">--cyto-path</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2d_2dcyto_2dpath">--cyto-path</a></strong>
+
 <dd>
-The path to the cytoscape jar file. This option may also be set in
-the user environment as RM_CYTO_PATH.
+<p>The path to the cytoscape jar file. This option may also be set in
+the user environment as RM_CYTO_PATH.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2d%2dcyto%2dlib">--cyto-lib</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2d_2dcyto_2dlib">--cyto-lib</a></strong>
+
 <dd>
-The path to the directory of cytoscape plugins. This option may also
-be set in the user environment as RM_CYTO_LIB.
+<p>The path to the directory of cytoscape plugins. This option may also
+be set in the user environment as RM_CYTO_LIB.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2d%2dcyto%2dmem">--cyto-mem</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2d_2dcyto_2dmem">--cyto-mem</a></strong>
+
 <dd>
-The memory to allocate to cytoscape. Larger graphs require more memory.
-This option may also be set in the user environment as RM_CYTO_MEM.
+<p>The memory to allocate to cytoscape. Larger graphs require more memory.
+This option may also be set in the user environment as RM_CYTO_MEM.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2d%2djava%2dpath">--java-path</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2d_2djava_2dpath">--java-path</a></strong>
+
 <dd>
-The path to java. Be default this will assume that simply invoking 'java'
+<p>The path to java. Be default this will assume that simply invoking 'java'
 will work. This variable allows you to specify the location of java
 directly. This is very useful if you have multile versions of java
 installed on your machine.
 This option may also be set in the user environment as:
-RM_CYTO_JAVA_PATH.
+RM_CYTO_JAVA_PATH.</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <h2><a name="graph_options">Graph Options</a></h2>
 <dl>
-<dt><strong><a name="item_%2d%2ddirection">--direction</a></strong><br />
-</dt>
+<dt><strong><a name="item__2d_2ddirection">--direction</a></strong>
+
 <dd>
-Graph edge direction. This is currently only supported for tab delim blast:
+<p>Graph edge direction. This is currently only supported for tab delim blast:</p>
 </dd>
 <dd>
 <p>-d 0 = undirected (i &lt; j)</p>
@@ -371,35 +379,36 @@ Graph edge direction. This is currently only supported for tab delim blast:
 <p>-d 5 = directed (all i,j)
        Reciprocal hits drawn as two edges.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dn_graph_node_attributes">-n Graph node attributes</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dn_graph_node_attributes">-n Graph node attributes</a></strong>
+
 <dd>
-The graph node attributes to use for node classification.
-Not currently implemented.
+<p>The graph node attributes to use for node classification.
+Not currently implemented.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dg_graph_algorithm">-g Graph algorithm</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dg_graph_algorithm">-g Graph algorithm</a></strong>
+
 <dd>
-Not currently implemented.
+<p>Not currently implemented.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dk_k_best_blast_hits_used">-k K best blast hits used</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dk_k_best_blast_hits_used">-k K best blast hits used</a></strong>
+
 <dd>
-Not currently implemented.
+<p>Not currently implemented.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_%2dw_0">-w 0</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item__2dw_0">-w 0</a></strong>
+
 <dd>
-Graph edge weight option:
+<p>Graph edge weight option:</p>
 </dd>
 <dd>
 <p>-w 0 unweighted</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <hr />
@@ -461,18 +470,28 @@ placed in the table name 'tblSeqData'.</p>
 when the process is finished.</p>
 <pre>
  jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
-               -o net_out -f net_file --launch-cyto</pre>
+               -o net_out -f net_file --cyto-launch</pre>
 <p>The program makes an assumption about where the cytoscape jar file
 is located, you can specify the location of this file using the
 'cyto-path' option.</p>
 <pre>
  jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
-               -o net_out -f net_file --launch-cyto
+               -o net_out -f net_file --cyto-launch
                --cyto-path /usr/local/Cytoscape_v2.6/cyscape.jar
                --cyto-lib /usr/local/Cytoscape_v2.6/lib/</pre>
 <p>Very large networks will use large amounts of memory. The amount of
 memory made available to cytoscape can be set with the '--cyto-mem'
 option.</p>
+<p>
+</p>
+<h2><a name="graph_edges_direction">Graph Edges Direction</a></h2>
+<p>The direction of the edges that are used in constructing the graph
+are set using the --direction variable. This allows for the construction of
+unidrectional or bidirected graphs. For example, to generate a bidrected
+graph that includes edges to self you would use the following command:</p>
+<pre>
+ jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
+               -o net_out -f net_file --cyto-launch --direction 5</pre>
 <p>
 </p>
 <hr />
@@ -519,22 +538,23 @@ An example configuration file is as follows:</p>
 <h2><a name="environment">Environment</a></h2>
 <p>Cytoscape options can be set in the user environment. These options are:</p>
 <ul>
-<li><strong><a name="item_rm_cyto_java_path">RM_CYTO_JAVA_PATH</a></strong><br />
+<li><strong><a name="item_rm_cyto_java_path">RM_CYTO_JAVA_PATH</a></strong>
+
+<p>The path to use for the java binary.</p>
 </li>
-The path to use for the java binary.
-<p></p>
-<li><strong><a name="item_rm_cyto_lib">RM_CYTO_LIB</a></strong><br />
+<li><strong><a name="item_rm_cyto_lib">RM_CYTO_LIB</a></strong>
+
+<p>The location of the libary folder for the cytoscape plugins.</p>
 </li>
-The location of the libary folder for the cytoscape plugins.
-<p></p>
-<li><strong><a name="item_rm_cyto_path">RM_CYTO_PATH</a></strong><br />
+<li><strong><a name="item_rm_cyto_path">RM_CYTO_PATH</a></strong>
+
+<p>The path to the cytoscape jar file.</p>
 </li>
-The path to the cytoscape jar file.
-<p></p>
-<li><strong><a name="item_rm_cyto_mem">RM_CYTO_MEM</a></strong><br />
+<li><strong><a name="item_rm_cyto_mem">RM_CYTO_MEM</a></strong>
+
+<p>The amount of memory to allocate to cytoscape.</p>
 </li>
-The amount of memory to allocate to cytoscape.
-<p></p></ul>
+</ul>
 <p>An example of setting these options in the bash shell is:</p>
 <pre>
  export RM_CYTO_PATH='/home/username/apps/Cytoscape-v2.3/cytoscape.jar'
@@ -549,45 +569,47 @@ The amount of memory to allocate to cytoscape.
 </p>
 <h2><a name="required_software">Required Software</a></h2>
 <ul>
-<li><strong><a name="item_ncbi_blastall">NCBI blastall</a></strong><br />
-</li>
-This program is designed to parse output from the NCBI blastall program.
+<li><strong><a name="item_ncbi_blastall">NCBI blastall</a></strong>
+
+<p>This program is designed to parse output from the NCBI blastall program.
 The latest version of the NCBI blastall program can be downloaded from:
-<a href="ftp://ftp.ncbi.nih.gov/blast/executables/LATEST">ftp://ftp.ncbi.nih.gov/blast/executables/LATEST</a>
-<p></p>
-<li><strong><a name="item_cytoscape">Cytoscape</a></strong><br />
+<a href="ftp://ftp.ncbi.nih.gov/blast/executables/LATEST">ftp://ftp.ncbi.nih.gov/blast/executables/LATEST</a></p>
 </li>
-The visualization of graphs is supported using the Cytoscape graph
+<li><strong><a name="item_cytoscape">Cytoscape</a></strong>
+
+<p>The visualization of graphs is supported using the Cytoscape graph
 visualization program 
-<a href="http://www.cytoscape.org">http://www.cytoscape.org</a>
-<p></p>
-<li><strong><a name="item_gd_graphics_library">GD Graphics Library</a></strong><br />
+<a href="http://www.cytoscape.org">http://www.cytoscape.org</a></p>
 </li>
-Drawing the all by all dot matrix requires the GD graphics library.
-<a href="http://www.boutell.com/gd/">http://www.boutell.com/gd/</a>
-<p></p>
-<li><strong><a name="item_mysql">MySQL</a></strong><br />
+<li><strong><a name="item_gd_graphics_library">GD Graphics Library</a></strong>
+
+<p>Drawing the all by all dot matrix requires the GD graphics library.
+<a href="http://www.boutell.com/gd/">http://www.boutell.com/gd/</a></p>
 </li>
-Currently only the MySQL database format is supported.
-<a href="http://www.mysql.com/">http://www.mysql.com/</a>
-<p></p></ul>
+<li><strong><a name="item_mysql">MySQL</a></strong>
+
+<p>Currently only the MySQL database format is supported.
+<a href="http://www.mysql.com/">http://www.mysql.com/</a></p>
+</li>
+</ul>
 <p>
 </p>
 <h2><a name="required_perl_modules">Required Perl Modules</a></h2>
 <ul>
-<li><strong><a name="item_bio%3a%3asearchio">Bio::SearchIO</a></strong><br />
+<li><strong><a name="item_bio_3a_3asearchio">Bio::SearchIO</a></strong>
+
+<p>This module is part of bioperl and is required to parse BLAST
+output in a format that is tiled across all HSPs.</p>
 </li>
-This module is part of bioperl and is required to parse BLAST
-output in a format that is tiled across all HSPs.
-<p></p>
-<li><strong><a name="item_getopt%3a%3along">Getopt::Long</a></strong><br />
+<li><strong><a name="item_getopt_3a_3along">Getopt::Long</a></strong>
+
+<p>This module is required to accept options at the command line.</p>
 </li>
-This module is required to accept options at the command line.
-<p></p>
-<li><strong><a name="item_graph">Graph</a></strong><br />
+<li><strong><a name="item_graph">Graph</a></strong>
+
+<p>The graph module is required.</p>
 </li>
-The graph module is required.
-<p></p></ul>
+</ul>
 <p>
 </p>
 <h2><a name="required_databases">Required Databases</a></h2>
@@ -595,22 +617,23 @@ The graph module is required.
 external sources. These databases are used for nearest neighbor BLAST
 classification of unkown sequences.</p>
 <ul>
-<li><strong>TREP</strong><br />
+<li><strong>TREP</strong>
+
+<p><a href="http://wheat.pw.usda.gov/ITMI/Repeats/">http://wheat.pw.usda.gov/ITMI/Repeats/</a></p>
 </li>
-<a href="http://wheat.pw.usda.gov/ITMI/Repeats/">http://wheat.pw.usda.gov/ITMI/Repeats/</a>
-<p></p>
-<li><strong>RepBase</strong><br />
+<li><strong>RepBase</strong>
+
+<p><a href="http://www.girinst.org/repbase/update/index.html">http://www.girinst.org/repbase/update/index.html</a></p>
 </li>
-<a href="http://www.girinst.org/repbase/update/index.html">http://www.girinst.org/repbase/update/index.html</a>
-<p></p>
-<li><strong>SanMiguel</strong><br />
+<li><strong>SanMiguel</strong>
+
+<p><a href="http://www.genomics.purdue.edu/~pmiguel/projects/retros/">http://www.genomics.purdue.edu/~pmiguel/projects/retros/</a></p>
 </li>
-<a href="http://www.genomics.purdue.edu/~pmiguel/projects/retros/">http://www.genomics.purdue.edu/~pmiguel/projects/retros/</a>
-<p></p>
-<li><strong><a name="item_tigr_repeats">TIGR Repeats</a></strong><br />
+<li><strong><a name="item_tigr_repeats">TIGR Repeats</a></strong>
+
+<p><a href="http://www.tigr.org/tdb/e2k1/plant.repeats/">http://www.tigr.org/tdb/e2k1/plant.repeats/</a></p>
 </li>
-<a href="http://www.tigr.org/tdb/e2k1/plant.repeats/">http://www.tigr.org/tdb/e2k1/plant.repeats/</a>
-<p></p></ul>
+</ul>
 <p>
 </p>
 <hr />
@@ -619,21 +642,23 @@ classification of unkown sequences.</p>
 </p>
 <h2><a name="bugs">Bugs</a></h2>
 <ul>
-<li><strong><a name="item_no_bugs_currently_known">No bugs currently known</a></strong><br />
+<li><strong><a name="item_no_bugs_currently_known">No bugs currently known</a></strong>
+
+<p>If you find a bug with this software, file a bug report on the RepMiner
+Sourceforge website: <a href="http://sourceforge.net/tracker/?group_id=192812">http://sourceforge.net/tracker/?group_id=192812</a></p>
 </li>
-If you find a bug with this software, file a bug report on the RepMiner
-Sourceforge website: <a href="http://sourceforge.net/tracker/?group_id=192812">http://sourceforge.net/tracker/?group_id=192812</a>
-<p></p></ul>
+</ul>
 <p>
 </p>
 <h2><a name="limitations">Limitations</a></h2>
 <ul>
-<li><strong><a name="item_limited_to_m8_or_m9_blast_format">Limited to m8 or m9 BLAST format</a></strong><br />
-</li>
-This script is designed to be a lean and fast parser of the 
+<li><strong><a name="item_limited_to_m8_or_m9_blast_format">Limited to m8 or m9 BLAST format</a></strong>
+
+<p>This script is designed to be a lean and fast parser of the 
 similarity information from BLAST. It is therefore limited
-to using the simple m8 or m9 BLAST alignment format.
-<p></p></ul>
+to using the simple m8 or m9 BLAST alignment format.</p>
+</li>
+</ul>
 <p>
 </p>
 <hr />
@@ -673,7 +698,7 @@ should cite the repminer website:</p>
 <h1><a name="history">HISTORY</a></h1>
 <p>STARTED: 06/14/2006</p>
 <p>UPDATED: 12/11/2008</p>
-<p>VERSION: $Rev: 118 $</p>
+<p>VERSION: $Rev: 119 $</p>
 <table border="0" width="100%" cellspacing="0" cellpadding="3">
 <tr><td class="block" valign="middle">
 <big><strong><span class="block">&nbsp;jaba_blast.pl</span></strong></big>
