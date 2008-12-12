@@ -510,8 +510,48 @@ below.</p>
 </p>
 <h2><a name="configuration_file">Configuration File</a></h2>
 <p>The jaba_blast.pl program can make use of a configuration file to
-specify the options that are set at the command line. Lines in the 
-configuration that start with a pound sign (#) are ignored.
+specify the options that are set at the command line. This is useful
+when you want to work a large number of variables at one time.
+The path to the configuration file is specified with the --config
+option:</p>
+<pre>
+ jaba_blast.pl --config my_config_file.txt</pre>
+<p>The valid variable strings in the config file with their command line
+equivalents in brackets are:</p>
+<ul>
+<li><strong><a name="item_dbusername__5b_2d_2dusername_5d">DbUserName [--username]</a></strong>
+
+<li><strong><a name="item_dbname__5b_2d_2ddatabase_5d">DbName [--database]</a></strong>
+
+<li><strong><a name="item_netdir__5b_2d_2ddirection_5d">NetDir [--direction]</a></strong>
+
+<li><strong><a name="item_blast_allbyall__5b_2d_2dinfile_5d">BLAST_AllByAll [--infile]</a></strong>
+
+<li><strong><a name="item_blast_repdb__5b_2dr_5d">BLAST_RepDB [-r]</a></strong>
+
+<li><strong><a name="item_netname__5b_2df_5d">NetName [-f]</a></strong>
+
+<li><strong><a name="item_a_minqrylen__5b_2dl_5d">A_MinQryLen [-l]</a></strong>
+
+<li><strong><a name="item_a_minscore__5b_2ds_5d">A_MinScore [-s]</a></strong>
+
+<li><strong><a name="item_a_maxe__5b_2de_5d">A_MaxE [-e]</a></strong>
+
+<li><strong><a name="item_minqrylen__5b_2d_2dcat_2dlen_5d">MinQryLen [--cat-len]</a></strong>
+
+<li><strong><a name="item_minscore__5b_2d_2dcat_2dscore_5d">MinScore [--cat-score]</a></strong>
+
+<li><strong><a name="item_maxe__5b_2d_2dcat_2dmaxe_5d">MaxE [--cat-maxe]</a></strong>
+
+<li><strong><a name="item_abatable__5b_2da_5d">ABATable [-a]</a></strong>
+
+<li><strong><a name="item_repeattable__5b_2dc_5d">RepeatTable [-c]</a></strong>
+
+</ul>
+<p>The variable name is separated from the variable value by a white
+space of any length.
+Lines in the configuration that start with a pound sign (#) are ignored.
+The variable name and the variable value can not contain any spaces.
 An example configuration file is as follows:</p>
 <pre>
  # VARNAME             VAR-VALUE
@@ -652,6 +692,31 @@ Sourceforge website: <a href="http://sourceforge.net/tracker/?group_id=192812">h
 </p>
 <h2><a name="limitations">Limitations</a></h2>
 <ul>
+<li><strong><a name="item_sequence_identifiers_are_limited_to_integers">Sequence Identifiers Are Limited to Integers</a></strong>
+
+<p>It is necessary that all sequenced be identified by a single unique integer
+from one to the number of squences in the database. This unique identifier
+must be offset from the rest of the fasta header with a pipe '|'. For example
+the fasta file headers:</p>
+<pre>
+ &gt;seq_BAC1_te_one
+ &gt;seq_BAC1_te_two
+ &gt;seq_BAC1_te_three
+ &gt;seq_BAC2_te_one
+ &gt;seq_BAC2_te_two</pre>
+<p>Must be transformed to the format:</p>
+<pre>
+ &gt;1|seq_BAC1_te_one
+ &gt;2|seq_BAC1_te_two
+ &gt;3|seq_BAC1_te_three
+ &gt;4|seq_BAC2_te_one
+ &gt;5|seq_BAC2_te_two</pre>
+<p>These integers will be used to determine the graph direction options, 
+and will be used as the unique id when uploading sequence records
+to the database.
+Thes integers can be automatically assigned using the program 
+'fasta_add_num.pl' which is part of the RepMiner package.</p>
+</li>
 <li><strong><a name="item_limited_to_m8_or_m9_blast_format">Limited to m8 or m9 BLAST format</a></strong>
 
 <p>This script is designed to be a lean and fast parser of the 
