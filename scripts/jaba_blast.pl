@@ -16,13 +16,12 @@
 #  the Cytoscape graph visualization program.               |
 #                                                           |
 # USAGE:                                                    |
-#  jabablast.pl --usage                                     |
+#  jaba_blast.pl --usage                                    |
 #                                                           |
 #-----------------------------------------------------------+
 # TO DO:  
-#  -Path variable for cytoscape
-#    also allow for env options
 # - Add graph statistics using the Graph perl module
+# - Write sim file
 #
 # [ ] Add ability to use identity or bit score for the
 #     parsing of the BLAST.
@@ -66,12 +65,14 @@ my $CreateMatrix = 0;
 #-----------------------------+
 # CYTOSCAPE VARIABLES         |
 #-----------------------------+
-# MAKE ENV OPTIONS FOR THE FOLLOWING
-my $java_path = "java";
-my $cytoscape_lib = "/home/jestill/Apps/Cytoscape-v2.3/plugins";
-# Path to the cytoscape 
-my $cytoscape_path = "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
-my $cytoscape_mem = "2048M";
+my $java_path = $ENV{RM_CYTO_JAVA_PATH} || 
+    "java";
+my $cytoscape_lib = $ENV{RM_CYTO_LIB} ||
+    "/home/jestill/Apps/Cytoscape-v2.3/plugins";
+my $cytoscape_path = $ENV{RM_CYTO_PATH} || 
+    "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
+my $cytoscape_mem = $ENV{RM_CYTO_MEM} ||
+    "2048M";
 
 #-----------------------------+
 # GENERAL USE PROGRAM VARS    |
@@ -83,6 +84,7 @@ my $QryName;                   # Name of the query
 #-----------------------------+
 # ALL-BY-ALL BLAST            |
 #-----------------------------+
+my $BlastFormat = "8";         # Expect m8 blast
 my $in_aba_blast;              # Path to AllByAll blast output file
 my $A_MinQryLen = "50";        # Minimum query length for all by all blast
 my $A_MinScore = "150";        # Minimum Bit Score for all by all blast
@@ -136,8 +138,6 @@ my $MaxVal = 0;                # Max value to determine the coordinates
 my $NetDir;                    # Directory for network files
 my $NetName;                   # Name of the *.sif file
 my $GraphDir = "0";            # Directions of edges in graph
-my $BlastFormat;               # Foramt of the blast file
-                               # ie m = 0,8, or 9
 
 #-----------------------------+
 # DATABASE VARIABLES          |
@@ -163,19 +163,19 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "o|outdir=s"    => \$NetDir,
 		    "Z|config=s"    => \$Config,  # Config file path
 		    # CYTOSCAPE OPTIONS
-		    "launch-cyto"   => \$do_launch_cytoscape,
-		    "java-path=s"   => \$java_path,
+		    "cyto-launch"   => \$do_launch_cytoscape,
 		    "cyto-path=s"   => \$cytoscape_path,
 		    "cyto-lib=s"    => \$cytoscape_lib,
 		    "cyto-mem=s"    => \$cytoscape_mem,
+		    "java-path=s"   => \$java_path,
 		    # DATABASE VARIABLES
-		    "b=s"           => \$DbName,
-		    "u=s"           => \$DbUserName,
+		    "d|database=s"  => \$DbName,
+		    "u|username=s"  => \$DbUserName,
 		    "password=s"    => \$DbUserPassword,
 		    # General variables
 		    "f=s"           => \$NetName,
 		    # GRAPH OPTIONS
-		    "d=s"           => \$GraphDir, # Graph direction
+		    "direction=s"   => \$GraphDir, # Graph direction
 		    # ALL BY ALL BLAST OPTIONS
 		    "m=s"           => \$BlastFormat,
 		    "l=s"           => \$A_MinQryLen,
@@ -195,8 +195,6 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "x|x-scale=i"   => \$xsc,
 		    "y|y-scale=i"   => \$ysc,
                     "p|pix-size=i"  => \$pxs,
-                    # BOOLEANS
-		    "run-graphiz"   => \$RunGraphviz,
                     # ADDITIONAL INFORMATION
                     "q|quiet"       => \$quiet,
                     "verbose"       => \$verbose,
@@ -229,28 +227,6 @@ if ($show_version) {
 	"Version: $VERSION\n\n";
     exit;
 }
-
-
-#-----------------------------------------------------------+
-# COMMAND LINE VARIABLES                                    |
-#-----------------------------------------------------------+
-
-#-----------------------------+
-# THE FOLLOWING OPTIONS ARE   |
-# REQUIRED                    |
-#-----------------------------+
-# TODO:
-# This should be changed to allow for the option of visualizing the
-# AllByAll BLAST results without the repeat data categorization path.
-# THe output dir should include the / at the end of the DIR PAth
-#my $PrintHelp = $Options{h};
-#my $Config = $Options{Z};
-#if ($Config){
-#    print "\n\nThe config file is:\n\t$Config\n\n";}
-#my $quiet = $Options{Q};
-#my $CreateMatrix = $Options{M};
-#my $do_launch_cytoscape = $Options{C};
-#my $RunGraphviz = $Options{G};
 
 
 #-----------------------------+
@@ -289,13 +265,13 @@ if ($Config) {
     $MaxE = &ParseConfigFile($Config,"MaxE")
 	|| "1.0e-03";
     
-    # ALL BY ALL MATRIX DRAWING VARIABLES
-    $xsc = &ParseConfigFile($Config,"xsc")
-	|| "2";  # The X coordinate scaling factor
-    $ysc = &ParseConfigFile($Config,"ysc") 
-	|| "2";  # The Y coordinate scaling factor
-    $pxs = &ParseConfigFile($Config,"pxs") 
-	|| "4";  # Pixel size of the matched dots
+#    # ALL BY ALL MATRIX DRAWING VARIABLES
+#    $xsc = &ParseConfigFile($Config,"xsc")
+#	|| "2";  # The X coordinate scaling factor
+#    $ysc = &ParseConfigFile($Config,"ysc") 
+#	|| "2";  # The Y coordinate scaling factor
+#    $pxs = &ParseConfigFile($Config,"pxs") 
+#	|| "4";  # Pixel size of the matched dots
 
     # DATABASE TABLES
     $tblAllByAll = &ParseConfigFile($Config,"ABATable") ||
@@ -304,6 +280,18 @@ if ($Config) {
 	"tblRepeatID";
     
 }
+
+
+#-----------------------------+
+# CHECK FOR SLASH IN DIR      |
+# VARIABLES                   |
+#-----------------------------+
+# If the indir does not end in a slash then append one
+# TO DO: Allow for backslash
+unless ($NetDir =~ /\/$/ ) {
+    $NetDir = $NetDir."/";
+}
+
 
 #-----------------------------------------------------------+
 # CHECK USER VARIABLES BEFORE CONTINUING WITH THE PROGRAM   |
@@ -625,8 +613,8 @@ sub DbSetup {
     #-----------------------------+
     if (&does_table_exist($tblAllByAll))
     {
-	print "The table $tblAllByAll already exits.\n";
-	my $question = "Do you want to overwrite the existing table.";
+	print "\nThe table $tblAllByAll already exits.\n";
+	my $question = "Do you want to overwrite the existing table. [Y/N]";
 	my $answer = &UserFeedback($question);
 	if ($answer =~ "n"){exit;}
 	# Could add code to use a different name for the table
@@ -1822,7 +1810,7 @@ sub ParseTabBLAST2Graph {
     open (BLASTIN, "<".$TabBlastFile) ||
 	die "Can not open BLAST file.$TabBlastFile.\n";
 
-    print "Adding nodes to Graph object\n";
+    print STDERR "Adding nodes to Graph object\n" if $verbose;
     $HitNum = 0;
     my $PrevX = "NULL";
     my $NumNodes = 0;
@@ -1848,7 +1836,7 @@ sub ParseTabBLAST2Graph {
 	    # Only load the records that have not already occured
 	    unless ($X =~ $PrevX)
 	    {
-		print "Adding Node: $X\n";
+		print STDERR "Adding Node: $X\n" if $verbose;
 		$NumNodes++;
 		$g->add_vertex( $X );	
 	    }
@@ -1914,9 +1902,8 @@ sub ParseTabBLAST2Graph {
 		    #-----------------------------+
 		    # UNDIRECTED x < y            |
 		    #-----------------------------+
-		    if ($XCrd < $YCrd)
-		    {
-			print "Adding Edge $XCrd-->$YCrd\n";
+		    if ($XCrd < $YCrd) {
+			print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
 			$g->add_edge($XCrd, $YCrd);
 			
 		    } # End of if XCrd > YCrd
@@ -1928,9 +1915,8 @@ sub ParseTabBLAST2Graph {
 		    #-----------------------------+ 
 		    # Using (bl) for both directed makes digraph into unigraph
 		    # This is sloppy and depends on cytoscape to interpret
-		    if ($XCrd != $YCrd)
-		    {
-			print "Adding Edge $XCrd-->$YCrd\n";
+		    if ($XCrd != $YCrd) {
+			print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
 			$g->add_edge($XCrd, $YCrd);
 		    } # End of if XCrd > YCrd
 		    
@@ -2556,18 +2542,16 @@ sub LaunchCytoscape {
     # Vizmap properties file -V
     # Cytoscape Properties   -P
     # 
-    print "Launching Cytoscape\n";
-    my $CyPath = "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
-    #my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
-    my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.3/plugins";
+    print STDERR "Launching Cytoscape\n";
 
-    # SIF NETWORK FILE
     # NODE ATTRIBUTE FILES
     my $NAs = $NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
     # EDGE ATTRIBUTE FILES
     my $EAs = $EA_BitScore." ".$EA_Sig;
-#    my $SysCmd = 'java -Xmx512M -jar '.$CyPath.
-    my $SysCmd = 'java -Xmx2048M -jar '.$CyPath.
+
+    # BUILD COMMAND
+    my $SysCmd = $JavaPath.' '.
+	'-Xmx2048M -jar '.$CyPath.
 	' -N '.$SifFile.
 	#' -V '.$VpPath.
 	' cytoscape.CyMain'.
@@ -2576,7 +2560,7 @@ sub LaunchCytoscape {
 	' -e '.$EAs.
 	' $*';
 
-    print "\n\nCMD IS:\n$SysCmd\n\n";
+    print STDERR "\n\nCMD IS:\n$SysCmd\n\n" if $verbose;
     system ( $SysCmd );
 
 }
@@ -2987,7 +2971,7 @@ This documentation refers to jaba_blast.pl version $Rev$
 =head2 Usage
 
     jaba_blast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
-                  -b dbName -f Network.sif
+                  -d dbName -f Network.sif
 
 =head2 Required Arguments
 
@@ -3156,22 +3140,25 @@ default = 50
 
 =over
 
-=item --launch-cyto
+=item --cyto-launch
 
-Open Cytoscape to view the output [boolean flag]
-default = Cytoscape not opened.
+When finished, launch the Cytoscape program to 
+view the output.
 
 =item --cyto-path
 
-The path to the cytoscape jar file
+The path to the cytoscape jar file. This option may also be set in
+the user environment as RM_CYTO_PATH.
 
 =item --cyto-lib
 
-The path to the directory of cytoscape
+The path to the directory of cytoscape plugins. This option may also
+be set in the user environment as RM_CYTO_LIB.
 
 =item --cyto-mem
 
 The memory to allocate to cytoscape. Larger graphs require more memory.
+This option may also be set in the user environment as RM_CYTO_MEM.
 
 =item --java-path
 
@@ -3179,6 +3166,8 @@ The path to java. Be default this will assume that simply invoking 'java'
 will work. This variable allows you to specify the location of java
 directly. This is very useful if you have multile versions of java
 installed on your machine.
+This option may also be set in the user environment as:
+RM_CYTO_JAVA_PATH.
 
 =back
 
@@ -3186,7 +3175,7 @@ installed on your machine.
 
 =over
 
-=item -d 
+=item --direction
 
 Graph edge direction. This is currently only supported for tab delim blast:
 
@@ -3233,7 +3222,90 @@ The typical use of the jaba_blast.pl program is to parse the output of
 an all by all blast report.
 
  jaba_blast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
-               -b dbName -f Network.sif
+               -d dbName -f Network.sif
+
+=head2 Full Process
+
+Assuming that you are starting with a fasta file of sequences named 
+'te_seqs.fasta'. You will first need to 
+
+You first need to create a database to hold the sequence data, the all by
+all blast results as well as the classification blast results.
+
+You will first need to log into the mysql database interface:
+
+ mysql -u username -p
+
+You will then be prompted for your password, after which you will be in
+the mysql command line. 
+
+  mysql>create database jaba_test;
+  mysql>exit;
+
+Prepend all sequences with an integer. This gives all sequences a
+unique identifier from 1 to the number of sequences. This integer
+will be used in the database and througout the process to keep track
+of this sequence record.
+
+ fasta_add_num.pl -i te_seqs.fasta -o te_seqs_num.fasta
+
+Load the sequences to the database you created
+
+ fasta2db.pl -i te_seqs_num.fasta -d jaba_test -u username
+
+You will be prompted for a password. This will load the sequence
+records to the database named 'jaba_test' where they will be
+placed in the table name 'tblSeqData'.
+
+Format the sequences for a blast search using formatdb
+
+ formatdb -p F -i te_seqs_num.fasta -t te_seqs -n te_seqs
+
+Do the all-by-all blast search
+
+ blastall -p blastn -e 1e-10 -i te_seqs_num.fasta -d te_seqs
+          -o te_seqs_te_seqs.bln -m 8
+
+Blast the sequences against a database of known TEs.
+
+ blastall -p blastn -e 1e-5 -i te_seqs_num.fasta -d TREP
+          -o te_seqs_trep.bln -m 8
+
+You may then load the database using
+
+ jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
+               -o net_out -f net_file
+
+=head2 Automatically Launching Cytoscape
+
+You may also choose to automatically load the data into cytoscape
+when the process is finished.
+
+ jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
+               -o net_out -f net_file --cyto-launch
+
+The program makes an assumption about where the cytoscape jar file
+is located, you can specify the location of this file using the
+'cyto-path' option.
+
+ jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
+               -o net_out -f net_file --cyto-launch
+               --cyto-path /usr/local/Cytoscape_v2.6/cyscape.jar
+               --cyto-lib /usr/local/Cytoscape_v2.6/lib/
+
+Very large networks will use large amounts of memory. The amount of
+memory made available to cytoscape can be set with the '--cyto-mem'
+option.
+
+=head2 Graph Edges Direction
+
+The direction of the edges that are used in constructing the graph
+are set using the --direction variable. This allows for the construction of
+unidrectional or bidirected graphs. For example, to generate a bidrected
+graph that includes edges to self you would use the following command:
+
+ jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
+               -o net_out -f net_file --cyto-launch --direction 5
 
 =head1 DIAGNOSTICS
 
@@ -3246,10 +3318,63 @@ Information and solutions
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
-This script does not make use of external configuration files
-or any options in the user environment. File paths to external programs
-will be added in the near future as variables that can be set
-in the user environment.
+=head2 Configuration File
+
+The jaba_blast.pl program can make use of a configuration file to
+specify the options that are set at the command line. Lines in the 
+configuration that start with a pound sign (#) are ignored.
+An example configuration file is as follows:
+
+ # VARNAME             VAR-VALUE
+ # DATABASE VARIABLES
+ DbUserName           jestill
+ DbName               dbSanMiguel_700
+ ABATable             tblAllByAll
+ RepeatTable          tblRepeatID
+ # INPUT FILES
+ BLAST_AllByAll       /home/jestill/projects/SanMiguel/SanMiguel_700/SanMiguel700_SanMiguel700.blo
+ BLAST_RepDB          /home/jestill/projects/SanMiguel/SanMiguel_700/SanMiguel700_Mips_e10.blo
+ # OUTPUT DIRECTORY
+ NetDir               /home/jestill/projects/SanMiguel/SanMiguel_700/SanMigTest/
+ # ALL BY ALL BLAST VARIABLES
+ A_MinQryLen          50
+ A_MinScore           150
+ A_MaxE               1.0e-03
+ # REPEAT CLASSIFICATION BLAST VARIABLES
+ MinQryLen            20
+ MinScore             50
+ MaxE                 1.0e-03
+
+=head2 Environment
+
+Cytoscape options can be set in the user environment. These options are:
+
+=over 
+
+=item * RM_CYTO_JAVA_PATH
+
+The path to use for the java binary.
+
+=item * RM_CYTO_LIB
+
+The location of the libary folder for the cytoscape plugins.
+
+=item * RM_CYTO_PATH
+
+The path to the cytoscape jar file.
+
+=item * RM_CYTO_MEM
+
+The amount of memory to allocate to cytoscape.
+
+=back
+
+An example of setting these options in the bash shell is:
+
+ export RM_CYTO_PATH='/home/username/apps/Cytoscape-v2.3/cytoscape.jar'
+ export RM_CYTO_MEM='2048M';
+ export RM_CYTO_LIB='/home/username/apps/Cytoscape-v2.3/plugins'
+ export RM_JAVA_PATH='java'
 
 =head1 DEPENDENCIES
 
@@ -3345,8 +3470,6 @@ Sourceforge website: http://sourceforge.net/tracker/?group_id=192812
 
 =item * Limited to m8 or m9 BLAST format
 
-Okay, not really but I need a holder for now.
-
 This script is designed to be a lean and fast parser of the 
 similarity information from BLAST. It is therefore limited
 to using the simple m8 or m9 BLAST alignment format.
@@ -3355,7 +3478,7 @@ to using the simple m8 or m9 BLAST alignment format.
 
 =head1 SEE ALSO
 
-The cnv_blast2sim.pl program is part of the repminer package of 
+The jaba_blast.pl program is part of the repminer package of 
 repeat element annotation programs.
 See the RepMiner web page 
 ( http://repminer.sourceforge.net/ )
@@ -3375,6 +3498,14 @@ WARRANTY. USE AT YOUR OWN RISK.
 =head1 AUTHOR
 
 James C. Estill E<lt>JamesEstill at gmail.comE<gt>
+
+=head1 CITATION
+
+A manuscript is in preparation describing this software. Currently you 
+should cite the repminer website:
+
+  JC Estill and JL Bennetzen. 2008. RepMiner. 
+  http://repminer.sourceforge.net
 
 =head1 HISTORY
 
@@ -3641,6 +3772,10 @@ VERSION: $Rev$
 # - Removing old cytoscape subfunctions
 # - Adding new CytoscapeLaunch subfuction that accepts path vars
 # - Dropped the BACOUT and BAC related node attribute files
+# - Added check for slash in outdir (NetDir)
+# - Added ENV options for cytoscape variables
+# - Updated POD to include information on ENV options
+# - Updated POD to include information on config file
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
@@ -3652,10 +3787,6 @@ VERSION: $Rev$
 # - Currently this uses a Best Hit to determine the Class and name
 #   of the transposable element, I Should also add a Majortiy Rules
 #   class for those cases or a best k majority rules
-# - Perhaps add a second BLAST Parser for doing the MITEs, This will
-#   have a lower stringincy, or could perhaps just do this within
-#   the current parser. The mite parser could also be based totally
-#   on hmmer evaluation of known models.
 # 
 # WANTED
 # - Classify vector of hit scores etcs. This could be a separate
@@ -3815,44 +3946,6 @@ sub DrawXYPlot {
     print DISPLAY $png_data;
     close DISPLAY;
 
-
-}
-
-
-
-sub LaunchCytoscapeOld {
-#-----------------------------+
-# LAUNCH CYTOSCAPE WITH THE   |
-# EDGE ATTRIBUTES AND NODE    |
-# ATTRIBUTES THAT HAVE BEEN   |
-# CREATED                     |
-# Cytoscape V 2.2             |
-#-----------------------------+
-
-    # Edge attributes are -j
-    # Node attributes are -n
-
-    print "Launching Cytoscape\n";
-    my $CyPath = "/home/jestill/Apps/Cytoscape-v2.2/cytoscape.jar";
-    my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
-    my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.2/plugins";
-
-    # SIF NETWORK FILE
-    my $SifFile = $_[0]; # The -i variable
-    # NODE ATTRIBUTE FILES
-    my $NAs = $NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
-    # EDGE ATTRIBUTE FILES
-    my $EAs = $EA_BitScore." ".$EA_Sig;
-#    my $SysCmd = 'java -Xmx512M -jar '.$CyPath.' -i '.$SifFile.
-    my $SysCmd = 'java -Xmx2048M -jar '.$CyPath.' -i '.$SifFile.
-	    ' -vp '.$VpPath.' cytoscape.CyMain'.
-	    ' --JLD '.$PlugPath.
-	    ' -n '.$NAs.
-	    ' -j '.$EAs.
-	    ' $*';
-
-    print "\n\nCMD IS:\n$SysCmd\n\n";
-    system ( $SysCmd );
 
 }
 
