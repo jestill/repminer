@@ -22,12 +22,18 @@
 # TO DO:  
 # - Add graph statistics using the Graph perl module
 # - Write sim file
+# -The problem with the current implementation is the
+#  the sequence query is looking for id instead of rownum
+#  from the sequence query, this is a problem with teh
+#  fasta2db.pl program.
+# - Deprecat parseTabAllByAll ... this is still doing 
+#   and HSP by HSP parse, this should only be
+#   use if the HSP per HSP scores are desired
+# - Switch to blasttable from bioperl to get the true
 #
 # [ ] Add ability to use identity or bit score for the
 #     parsing of the BLAST.
 #     This will go to the function ParseTabBlast
-# [ ] Consider the use of springgraph
-#     http://www.chaosreigns.com/code/springgraph/
 #
 
 package REPMINER;
@@ -63,6 +69,14 @@ my $RunGraphviz;
 my $CreateMatrix = 0;
 
 #-----------------------------+
+# GENERAL USE PROGRAM VARS    |
+#-----------------------------+
+my $XCrd;                      # Query seq id, (X coord integer)
+my $YCrd;                      # Hit seq id (Y coord integer)
+my $QryName;                   # Name of the query
+my $param_name = "def";        # The parameter set name for this analysis
+
+#-----------------------------+
 # CYTOSCAPE VARIABLES         |
 #-----------------------------+
 my $java_path = $ENV{RM_CYTO_JAVA_PATH} || 
@@ -73,13 +87,6 @@ my $cytoscape_path = $ENV{RM_CYTO_PATH} ||
     "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
 my $cytoscape_mem = $ENV{RM_CYTO_MEM} ||
     "2048M";
-
-#-----------------------------+
-# GENERAL USE PROGRAM VARS    |
-#-----------------------------+
-my $XCrd;                      # Query seq id, (X coord)
-my $YCrd;                      # Hit seq id (Y coord)
-my $QryName;                   # Name of the query
 
 #-----------------------------+
 # ALL-BY-ALL BLAST            |
@@ -142,9 +149,9 @@ my $GraphDir = "0";            # Directions of edges in graph
 #-----------------------------+
 # DATABASE VARIABLES          |
 #-----------------------------+
-my $DbUserName;                # Database user name
-my $DbUserPassword;            # Database user password
-my $DbName;                    # Database name
+my $DbUserPassword = $ENV{RM_DB_PASS};   # Database user password
+my $DbUserName = $ENV{RM_DB_USER};       # Database user name
+my $DbName;                       # Database name
 my $tblAllByAll = "tblAllByAll";  # Database table to store All by All Blast
 my $tblQryCat = "tblRepeatID";    # Database table to store blast to repDB
 
@@ -155,13 +162,19 @@ my $quiet = 0;
 my $show_usage = 0;
 my $show_version = 0;
 my $show_man = 0;
-my $show_help = 0; 
+my $show_help = 0;
+
+my $do_hsp = 0;  # 
+my $do_seq = 0;  # Try to fetch the sequence record from the db
 
 my $ok = GetOptions(# REQUIRED OPTIONS
-                    #"o|outfile=s"   => \$outfile,
 		    "i|infile=s"    => \$in_aba_blast,
 		    "o|outdir=s"    => \$NetDir,
-		    "Z|config=s"    => \$Config,  # Config file path
+		    # ADDITIONAL GENERAL OPTIONS
+		    "Z|config=s"    => \$Config,
+		    "param=s"       => \$param_name,
+		    "do-hsp"        => \$do_hsp,
+		    "do-seq"        => \$do_seq,
 		    # CYTOSCAPE OPTIONS
 		    "cyto-launch"   => \$do_launch_cytoscape,
 		    "cyto-path=s"   => \$cytoscape_path,
@@ -242,6 +255,7 @@ if ($Config) {
     $DbUserName = &ParseConfigFile($Config, uc("DbUserName") );
     $DbName = &ParseConfigFile($Config, uc("DbName") );
     $NetDir = &ParseConfigFile($Config, uc("NetDir") );
+    $DbUserPassword = &ParseConfigFile($Config, uc("DbPass") );
     
     # INPUT/OUTPUT FILES
     $in_aba_blast = &ParseConfigFile($Config, uc("BLAST_AllByAll") );
@@ -274,9 +288,9 @@ if ($Config) {
 #	|| "4";  # Pixel size of the matched dots
 
     # DATABASE TABLES
-    $tblAllByAll = &ParseConfigFile($Config,"ABATable") ||
+    $tblAllByAll = &ParseConfigFile($Config, uc("ABATable") ) ||
 	"tblAllByAll";
-    $tblQryCat = &ParseConfigFile($Config,"RepeatTable") ||
+    $tblQryCat = &ParseConfigFile($Config, uc ("RepeatTable") ) ||
 	"tblRepeatID";
     
 }
@@ -287,7 +301,6 @@ if ($Config) {
 # VARIABLES                   |
 #-----------------------------+
 # If the indir does not end in a slash then append one
-# TO DO: Allow for backslash
 unless ($NetDir =~ /\/$/ ) {
     $NetDir = $NetDir."/";
 }
@@ -364,7 +377,6 @@ mkdir $NetDir, 0777 unless (-e $NetDir);
 #-----------------------------+
 # CYTOSCAPE OUTPUT FILES      |
 #-----------------------------+
-my $SumOut = $NetDir."SumInfo.txt";
 my $SifOut = $NetDir.$NetName.".sif";
 my $NA_RepClass = $NetDir."RepClass.NA";
 my $NA_RepName = $NetDir."RepName.NA";
@@ -373,43 +385,15 @@ my $EA_BitScore = $NetDir."BitScore.EA";
 my $EA_Sig = $NetDir."HitSign.EA";
 my $EA_PID = $NetDir."PID.EA";
 my $GraphOut = $NetDir."ColorMatrix.png";
+
 my $HSPSif = $NetDir."HSP.sif";
 my $HSPFI = $NetDir."HSPFI.EA"; 
 my $HSPLen = $NetDir."HSPLen.EA";
-my $DrosOut = $NetDir."DrosGPI.NA";
-
-# SUMMARY INFORMATION
-open (SUMOUT, ">$SumOut") ||
-    die "Can not open $SumOut\n";     
-
-print SUMOUT "+----------------------------------------------------------+\n";
-print SUMOUT "| RepMiner Summary Outupt File                             |\n";
-print SUMOUT "+----------------------------------------------------------+\n";
-
 
 # NETWORK SIF FILE
 # For BLAST HITS
 open (SIFOUT, ">$SifOut") ||   #Network *.SIF file
     die "Can not open $SifOut\n"; 
-
-# NETWORK SIF FILE FOR
-# BLAST HSP
-open (HSPOUT, ">$HSPSif") ||
-    die "Can not open $HSPSif\n";
-
-# NODE ATTRIBUTE : REPEAT CLASS
-open (REPOUT, ">$NA_RepClass") ||
-    die "Can not open $NA_RepClass\n" ;
-print REPOUT "RepeatClass\n";
-
-open (REPNAME, ">$NA_RepName") ||
-    die "Can not open $NA_RepName\n";
-print REPNAME "RepeatName\n";
-
-# NODE ATTRIBUTE : SEQUENCE
-open (SEQOUT, ">$NA_SeqData") ||
-    die "Can not open $NA_SeqData\n";
-print SEQOUT "SeqData\n";
 
 # EDGE ATTRIBUTE : BIT SCORE
 open (BITOUT, ">$EA_BitScore") ||
@@ -426,28 +410,56 @@ open (PIDOUT, ">$EA_PID") ||
     die "Can not open $EA_PID";
 print PIDOUT "PercentIdentity\n";
 
-# HSP EDGE ATTRIBUTE : FRACTION IDENTICAL
-open (HSPFI, ">$HSPFI") ||
-    die "Can not open $HSPFI\n";
-print HSPFI "HSPFracIdent\n";
 
-# HSP EDGE ATTRBIUTE : TOTAL LENGTH
-open (HSPLEN, ">$HSPLen") ||
-    die "Can not open $HSPLen\n";
-print HSPLEN "HSPLength\n";
+if ($do_seq) {
+    # NODE ATTRIBUTE : SEQUENCE
+    open (SEQOUT, ">$NA_SeqData") ||
+	die "Can not open $NA_SeqData\n";
+    print SEQOUT "SeqData\n";
+}
+
+
+if ($do_hsp) {
+
+    # NETWORK SIF FILE FOR
+    # BLAST HSP
+    open (HSPOUT, ">$HSPSif") ||
+	die "Can not open $HSPSif\n";
+
+    # HSP EDGE ATTRIBUTE : FRACTION IDENTICAL
+    open (HSPFI, ">$HSPFI") ||
+	die "Can not open $HSPFI\n";
+    print HSPFI "HSPFracIdent\n";
+
+    # HSP EDGE ATTRBIUTE : TOTAL LENGTH
+    open (HSPLEN, ">$HSPLen") ||
+	die "Can not open $HSPLen\n";
+    print HSPLEN "HSPLength\n";
+
+}
+
+# NODE ATTRIBUTE : REPEAT CLASSIFICATION
+if ($RepBLAST) {
+    open (REPOUT, ">$NA_RepClass") ||
+	die "Can not open $NA_RepClass\n" ;
+    print REPOUT "RepeatClass\n";
+    
+    open (REPNAME, ">$NA_RepName") ||
+	die "Can not open $NA_RepName\n";
+    print REPNAME "RepeatName\n";
+}
 
 #-----------------------------+
 # CHECK DATABASE AND CREATE   |
 # TABLES IF NEEDED            | 
 #-----------------------------+
-print "Database setup.\n";
+print STDERR "Initializing database.\n" if $verbose;
 &DbSetup;
 
 #-----------------------------+
 # PARSE THE ALL BY ALL BLAST  |
 # AND LOAD TO THE BLAST MATRIX|
 #-----------------------------+
-#&LoadAllByAll;
 if ($BlastFormat == '8') {
 
     # Parse AxA to SIF Files
@@ -456,6 +468,11 @@ if ($BlastFormat == '8') {
     # Parse AxA to Graph Object and Classify
     # This generates the list of connected components
     &ParseTabBLAST2Graph ($in_aba_blast);
+
+}
+elsif ($BlastFormat == '0') {
+    # Old version of the parse program
+    #&LoadAllByAll;
 
 }
 
@@ -515,16 +532,27 @@ if ($CreateMatrix) {
 #-----------------------------------------------------------+
 # CLOSE TEXT OUTPUT FILES                                   |
 #-----------------------------------------------------------+
-close SUMOUT;                  # Close the summary output file
 close SIFOUT;                  # Close the sif network output file
-close REPOUT;                  # Close Repeat Class NA file
 close BITOUT;                  # Close the BitScore EA file
-close REPNAME;                 # Close the RepeatName NA file
 close SIGOUT;                  # Close the Hit significance EA file
-close HSPOUT;                  # Close the HSP SIF output file
-close HSPFI;                   # Close the HSP fraction identical EA file
-close HSPLEN;                  # Close the HSP Length EA file
 close PIDOUT;                  # Close the PercentIdentity EA file
+
+if ($do_seq) {
+    close SEQOUT;
+}
+
+# HSP FILES
+if ($do_hsp) {
+    close HSPOUT;                  # Close the HSP SIF output file
+    close HSPFI;                   # Close the HSP fraction identical EA file
+    close HSPLEN;                  # Close the HSP Length EA file
+}
+
+# REP CLASSIFICATION FILES
+if ($RepBLAST) {
+    close REPOUT;                  # Close Repeat Class NA file
+    close REPNAME;                 # Close the RepeatName NA file
+}
 
 print STDERR "The jabablast program has finished.\n" if $verbose;
 exit;
@@ -556,7 +584,6 @@ sub ParseConfigFile {
 	chomp;                 # Remove newline character
 	unless (m/\#.*/) {
 	    my @SplitLine = split;
-#	    if ($SplitLine[0] =~ $VarName){
 	    if ( uc($SplitLine[0]) =~ $VarName){
 		$VarValue = $SplitLine[1];}
 	}
@@ -611,8 +638,7 @@ sub DbSetup {
     #-----------------------------+
     # ALL BY ALL TABLE            |
     #-----------------------------+
-    if (&does_table_exist($tblAllByAll))
-    {
+    if (&does_table_exist($tblAllByAll)) {
 	print "\nThe table $tblAllByAll already exits.\n";
 	my $question = "Do you want to overwrite the existing table. [Y/N]";
 	my $answer = &UserFeedback($question);
@@ -641,13 +667,11 @@ sub DbSetup {
     $dbh->do($IndexAllByAllTbl);
 
     # Only create query category table if RepBlast is true
-    if ($RepBLAST)
-    {
+    if ($RepBLAST) {
 	#-----------------------------+
 	# QUERY CATEGORY TABLE        |
 	#-----------------------------+
-	if (&does_table_exist($tblQryCat))
-	{
+	if (&does_table_exist($tblQryCat)) {
 	    print "The table $tblQryCat already exits.\n";
 	    my $question = "Do you want to overwrite the existing table?";
 	    my $answer = &UserFeedback($question);
@@ -1835,9 +1859,24 @@ sub ParseTabBLAST2Graph {
 
 	    # Only load the records that have not already occured
 	    unless ($X =~ $PrevX) {
+
 		print STDERR "Adding Node: $X\n" if $verbose;
 		$NumNodes++;
 		$g->add_vertex( $X );	
+
+		#-----------------------------+
+		# FETCH THE SEQUENCE STRING   |
+		#-----------------------------+
+		# Added 12/12/2008
+		if ($do_seq) {
+		    my $QrySeqData = &FetchSeqInfo("tblSeqData", 
+						   "seq", 
+						   "rownum",
+						   $X);
+		    print SEQOUT $X."=".$QrySeqData."\n";
+		}
+
+
 	    }
 	    $PrevX = $X;
 	    
@@ -1846,11 +1885,10 @@ sub ParseTabBLAST2Graph {
     } # End of while statement for working throught BLAST file
 
 
-    # Close the BLAST file and then reopen to get the
-    # edges.
+    # Close the BLAST file
     close BLASTIN;
 
-    print "$NumNodes Nodes\n";
+    #print STDERR "$NumNodes Nodes\n";
 
     #-----------------------------+
     # ADD EDGES                   |
@@ -2031,17 +2069,16 @@ sub ParseTabBLAST2Graph {
     #-----------------------------+
     print "Counting nodes and edges\n";
     my $NumObjNodes = $g->vertices;
-    print SUMOUT "Nodes:\t$NumObjNodes\n";
+    print STDERR "Nodes:\t$NumObjNodes\n";
     my $NumObjEdges = $g->edges;
-    print SUMOUT "Edges:\t$NumObjEdges\n";
-    
+    print STDERR "Edges:\t$NumObjEdges\n";
 
     #-----------------------------+
     # ADDTIONAL GRAPH INFO        |
     #-----------------------------+
     #print "Determing average path length";
     #my $apl = $g->average_path_length;
-    #print SUMOUT "APL:\t$apl\n";
+    #print STDERR "APL:\t$apl\n";
 
     #-----------------------------+
     # GRAPH DIAMETER              |
@@ -2052,7 +2089,7 @@ sub ParseTabBLAST2Graph {
 #    print "Determing graph diameter\n";
 #    my $gd = $g->diameter;
 #    print "GraphDiam:\t$gd\n";
-#    print SUMOUT "GraphDiam:\t$gd\n";
+#    print STDOUT "GraphDiam:\t$gd\n";
 
     
     
@@ -2078,7 +2115,7 @@ sub ParseTabBLAST2Graph {
 #	print "Determing length for $IndV\n";
 #	my $apl = $g->average_path_length($IndV) || "NULL"; 
 #	print "$IndV\t$apl\n";
-#	print SUMOUT "$IndV\t$apl\n";
+#	print STDOUT "$IndV\t$apl\n";
 #    }
     
 
@@ -2135,7 +2172,7 @@ sub ParseTabBLAST2Graph {
 		#print "\ttDeterming average path length\n";
 		#my $apl = $g->average_path_length($IndComp) || "NULL"; 
 		#print "\t$IndComp\t$apl\n";
-		#print SUMOUT "\t$IndComp\t$apl\n";
+		#print STDOUT "\t$IndComp\t$apl\n";
 		
 		#-----------------------------+
 		# PRINT NODE ATTRIBUTE OUT    | 
@@ -2233,14 +2270,14 @@ sub ParseTabBLAST2Graph {
 	
 	# Print the number of components in each cluster to the 
 	# summary output file
-	print SUMOUT "CLUST_$NumClust:\t$NumComp\n";
+	print STDOUT "CLUST_$NumClust:\t$NumComp\n";
 	
     } # End of for IndComp
 
     print "SING:\t$NumSing\n";
     print "GRPS:\t$NumMult\n";
-    print SUMOUT "SING:\t$NumSing\n";
-    print SUMOUT "GRPS:\t$NumMult\n";
+    print STDOUT "SING:\t$NumSing\n";
+    print STDOUT "GRPS:\t$NumMult\n";
     
 } # End of ParseTabBlast subfunction
 
@@ -2271,7 +2308,7 @@ sub LoadAllByAll {
 	my $NumHits = $BlastResult->num_hits;
 	my $QryName = $BlastResult->query_name;
 
-	print SUMOUT $QryName."\t".$NumHits."\n"; 
+	print STDOUT $QryName."\t".$NumHits."\n"; 
 
 	my @tmpqry = split(/\|/, $QryName );
 	$XCrd = $tmpqry[0];                  # First part of name is number
@@ -2286,9 +2323,12 @@ sub LoadAllByAll {
 	# ATTRIBUTE FILES             |
 	#-----------------------------+
 
-	my $QrySeqData =&FetchSeqInfo("tblSeqData", "seq", $DbQryID);
-	print SEQOUT $XCrd."=".$QrySeqData."\n";
-
+	# FETCH THE SEQUENCE STRING FROM THE DATABASE
+	if ($do_seq) {
+	    my $QrySeqData =&FetchSeqInfo("tblSeqData", "seq", "rownum",
+					   $XCrd);
+	    print SEQOUT $XCrd."=".$QrySeqData."\n";
+	}
 
 	if ($XCrd > $MaxVal) {$MaxVal = $XCrd;}
 	print $XCrd."\n";
@@ -2484,14 +2524,19 @@ sub FetchSeqInfo {
 # Returns UNK for search queries that 
 # could not be found in the database
     my $result;
-    my ($whichtable, $searchField, $searchID ) = @_;
+    my ($whichtable, $searchField, $id_field, $searchID ) = @_;
     #select * from tblSeqData where rownum = '1'
 
     #my $GetBACSQL = "SELECT * FROM ".$whichtable.
 	#" WHERE id='".$searchID."'";
 
+#    my $GetBACSQL = "SELECT ".$searchField." FROM ".$whichtable.
+#	" WHERE id='".$searchID."'";
+
     my $GetBACSQL = "SELECT ".$searchField." FROM ".$whichtable.
-	" WHERE id='".$searchID."'";
+	" WHERE ".$id_field."='".$searchID."'";
+
+    print "$GetBACSQL\n" if $verbose;
 
     my $cur = $dbh->prepare($GetBACSQL);
     $cur->execute();
@@ -2972,6 +3017,8 @@ This documentation refers to jaba_blast.pl version $Rev$
     jaba_blast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
                   -d dbName -f Network.sif
 
+    jaba_blast.pl --config config_run.cfg
+
 =head2 Required Arguments
 
     -i  # Path to the all by all blast result
@@ -3067,11 +3114,27 @@ get moved to a separate program. There are a number
 of variables that can be set with GraphViz that would be
 useful to set at the command lined. [Added 05/16/2007]
 
+=item --do-seq
+
+Fetch the sequence record from the database and generate the
+Seq.NA file. This file generates sequence string as node attributes.
+This allows for manual selection of sequence records from within
+the Cytoscape program.
+
 =back
 
 =head2 Database Options
 
 =over 2
+
+=item --password
+
+The password for logging onto the database. Although it is possible to
+sepecify the password at the command line, this is not recommended.
+If a password is not specified at the command line, you will be prompted
+to provide the password in a more secure manner. You man also specify the
+password using a config file, or your can set the password using the
+RM_DB_PASS variable in the user environment.
 
 =item -a tblAllByAll
 
@@ -3285,7 +3348,7 @@ when the process is finished.
 
 The program makes an assumption about where the cytoscape jar file
 is located, you can specify the location of this file using the
-'cyto-path' option.
+'--cyto-path' option:
 
  jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
                -o net_out -f net_file --cyto-launch
@@ -3336,6 +3399,8 @@ equivalents in brackets are:
 
 =item * DbName [--database]
 
+=item * DbPass [--password]
+
 =item * NetDir [--direction]
 
 =item * BLAST_AllByAll [--infile]
@@ -3375,10 +3440,10 @@ An example configuration file is as follows:
  ABATable             tblAllByAll
  RepeatTable          tblRepeatID
  # INPUT FILES
- BLAST_AllByAll       /home/jestill/projects/SanMiguel/SanMiguel_700/SanMiguel700_SanMiguel700.blo
- BLAST_RepDB          /home/jestill/projects/SanMiguel/SanMiguel_700/SanMiguel700_Mips_e10.blo
+ BLAST_AllByAll       MySeqs_MySeqs.bln
+ BLAST_RepDB          MySeqs_Mips_e10.bln
  # OUTPUT DIRECTORY
- NetDir               /home/jestill/projects/SanMiguel/SanMiguel_700/SanMigTest/
+ NetDir               MySeqs_Dir
  # ALL BY ALL BLAST VARIABLES
  A_MinQryLen          50
  A_MinScore           150
@@ -3412,12 +3477,29 @@ The amount of memory to allocate to cytoscape.
 
 =back
 
-An example of setting these options in the bash shell is:
+Additionally, you may set some database options in your user environment
+
+=over
+
+=item RM_DB_USER
+
+The user name for logging into the MySQL database.
+
+=item RM_DB_PASS
+
+The password for logging into the MySQL database.
+
+=back
+
+An example of setting these variables for the user 'cartman'
+in the bash shell is:
 
  export RM_CYTO_PATH='/home/username/apps/Cytoscape-v2.3/cytoscape.jar'
  export RM_CYTO_MEM='2048M';
  export RM_CYTO_LIB='/home/username/apps/Cytoscape-v2.3/plugins'
  export RM_JAVA_PATH='java'
+ export RM_DB_USER='cartman'
+ export RM_DB_PASS='potpie'
 
 =head1 DEPENDENCIES
 
@@ -3574,7 +3656,7 @@ James C. Estill E<lt>JamesEstill at gmail.comE<gt>
 A manuscript is in preparation describing this software. Currently you 
 should cite the repminer website:
 
-  JC Estill and JL Bennetzen. 2008. RepMiner. 
+  JC Estill, RS Baucom and JL Bennetzen. 2008. RepMiner. 
   http://repminer.sourceforge.net
 
 =head1 HISTORY
@@ -3850,6 +3932,18 @@ VERSION: $Rev$
 # 12/12/2008
 # - Added POD documentation for configuration file
 # - Added uppercase transformation for config file var names
+# - Dropped the SUMOUT file, replacing with STDOUT
+# - All error related messages will be sent to STDERR
+# - Added $param_name string and --param option to set this
+# - Dropped DrosOut
+# - Added $do_hsp varaible, this is used to
+#   prevent the generation of the HSP based sif and ea files
+#   when they are not desired
+# - Added $do_seq variable, this is used to determine if the
+#   program will attempt to fetch the sequence record
+#   for the database, and create a NA file for that sequence
+# - Added the fetch sequence string to the ParseTabBLAST2Graph
+#   subfunction
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
@@ -3858,14 +3952,11 @@ VERSION: $Rev$
 # NEEDED
 # - Calculate identity of the hit base on HSP info if needed. This
 #   should range from 0 to 1.0. 0.95 if 95 Percent identity.
+# 
+# WANTED
 # - Currently this uses a Best Hit to determine the Class and name
 #   of the transposable element, I Should also add a Majortiy Rules
 #   class for those cases or a best k majority rules
-# 
-# WANTED
-# - Classify vector of hit scores etcs. This could be a separate
-#   function. (ie. Jenk's optimization to assign colors to a 
-#   vector of bit scores obtained from en experiment)
 # - Add ability to select the minimum number of clusters an
 #   identified cluster must have to be printed to FASTA output
 # 
@@ -3881,9 +3972,9 @@ VERSION: $Rev$
 #
 
 #-----------------------------------------------------------+
-# JUNKYARD
+# SCRAPYARD
 #-----------------------------------------------------------+
-# Subfunctions not in use
+# Subfunctions not currently in use that may be brought back
 
 sub DrawXYPlot {
 #-----------------------------+
@@ -4020,62 +4111,6 @@ sub DrawXYPlot {
     print DISPLAY $png_data;
     close DISPLAY;
 
-
 }
 
-
-sub LaunchCytoscape_2_4 {
-# Added
-# 04/04/2007
-#-----------------------------+
-# NEW VERSION OF THE LAUNCH   |
-# CYTOSCAPE FOR VERSION 2.4   |
-#-----------------------------+
-# The following is still not working
-
-    # Relevant Cytoscape command line arguments
-    # Edge attributes are    -e
-    # Node attributes are    -n
-    # Network file           -N
-    # Cytoscape plugin path  -p
-    # Vizmap properties file -V
-    # Cytoscape Properties   -P
-    # 
-
-    print "Launching Cytoscape\n";
-
-    #my $VpPath = "/home/jestill/Apps/Cytoscape-v2.2/vizmap.props";
-#    my $CyPath = "/home/jestill/Apps/Cytoscape-v2.3/cytoscape.jar";
-#    my $PlugPath = "/home/jestill/Apps/Cytoscape-v2.3/plugins";
-
-    my $CyPath = "/home/jestill/Apps/Cytoscape_v2.4.0/cytoscape.jar";
-    my $PlugPath = "/home/jestill/Apps/Cytoscape_v2.4.0/plugins";
-
-    # SIF NETWORK FILE
-    my $SifFile = $_[0]; # The -N variable
-    # NODE ATTRIBUTE FILES
-
-    my $NAs = $NA_RepClass." ".$NA_RepName." ".$NA_SeqData;
-    # EDGE ATTRIBUTE FILES
-#    my $EAs = $EA_BitScore." ".$EA_Sig;
-# Adding edge flag here
-    my $EAs = $EA_BitScore." -e ".$EA_Sig;
-    my $javapath = "/usr/java/jre1.5.0_06/bin/java";
-
-    my $SysCmd = $javapath.
-	' -Dswing.aatext=true'.
-	' -Xmx512M'.
-	' -jar '.$CyPath.
-	' cytoscape.CyMain'.
-	' -N '.$SifFile.
-	#' -V '.$VpPath.
-	' -n '.$NAs.
-	' -e '.$EAs.
-	' -p '.$PlugPath.
-	' $*';
-
-    print "\n\nCMD IS:\n$SysCmd\n\n";
-    system ( $SysCmd );
-
-}
 
