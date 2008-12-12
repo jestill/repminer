@@ -76,8 +76,8 @@ my $cytoscape_mem = "2048M";
 #-----------------------------+
 # GENERAL USE PROGRAM VARS    |
 #-----------------------------+
-my $XCrd;                      # Query coordinate seq id (X coord)
-my $YCrd;                      # Hit coordinate, seq id (Y coord)
+my $XCrd;                      # Query seq id, (X coord)
+my $YCrd;                      # Hit seq id (Y coord)
 my $QryName;                   # Name of the query
 
 #-----------------------------+
@@ -176,9 +176,8 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "f=s"           => \$NetName,
 		    # GRAPH OPTIONS
 		    "d=s"           => \$GraphDir, # Graph direction
-		    # BLAST OPTIONS
+		    # ALL BY ALL BLAST OPTIONS
 		    "m=s"           => \$BlastFormat,
-		    # ALL BY ALL 
 		    "l=s"           => \$A_MinQryLen,
 		    "s=s"           => \$A_MinScore,
 		    "e=s"           => \$A_MaxE,
