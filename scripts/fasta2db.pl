@@ -23,7 +23,7 @@
 #                                                           |
 #-----------------------------------------------------------+
 
-print "The program has started\n";
+print STDERR "The program has started\n";
 
 #-----------------------------+
 # INCLUDES                    |
@@ -39,14 +39,10 @@ use Getopt::Std;               # Allows options flags at command line
 #-----------------------------+
 # FASTA FILE TO PARSE
 my $quiet;
-#my $SeqFile = "/home/jestill/projects/liriodendron/orig/Lirio_data.fasta";
-my $AllOutPath = "/home/jestill/projects/liriodendron/Lirio_data_num";
 my $SeqFormat = "fasta";       # The input sequence format
 my $SeqNum = 0;                # Var to keep track of nummber of seqs 
 my $SeqUniqueId;               # Unique ID attributed to the seq read record
 my $NewId;
-#my $DbUserName = "jestill";    # Username for MySQL Database
-#my $DbName = "dbSanMiguel";        # DB Name for MySQL Database
 my $DbUserPassword;            # Sets scope for the password
 #my $SeqTbl = "tblSeqData";     # Name of the data to hold the seq data
 
@@ -62,8 +58,8 @@ getopts('i:d:u:o:p:t:q', \%Options);
 my $Usage = "Fasta2DB -i InputFilePath -d dbName -u dbUserName [q]";
 my $SeqFile = $Options{i} || 
     die "You must provide an input file path\n$Usage\n";
-my $AllOutPath = $Options{o} || 
-    die "You must provide an output path\n$AllOutPath\n";
+#my $AllOutPath = $Options{o} || 
+#    die "You must provide an output path\n$AllOutPath\n";
 my $DbName  = $Options{d} || 
     die "You must the database name\n$Usage\n";
 my $DbUserName = $Options{u} || 
@@ -94,8 +90,8 @@ unless ($DbUserPassword) {
 my $inseq = Bio::SeqIO->new(-file   => "<$SeqFile",
 			    -format => $SeqFormat );
 
-my $outAll = Bio::SeqIO->new(-file   => ">$AllOutPath",
-			     -format => "fasta");
+#my $outAll = Bio::SeqIO->new(-file   => ">$AllOutPath",
+#			     -format => "fasta");
 
 my $dbh = DBI->connect("DBI:mysql:database=$DbName;host=localhost",
 		       $DbUserName, $DbUserPassword,
@@ -121,7 +117,7 @@ while (my $seq = $inseq->next_seq)  {
     $seq->primary_id( $NewID );
     $seq->display_id( $NewID );
 
-    print STDERR "\tNEW ID: ".$NewID."\n";
+    print STDERR "\tProcessing: ".$NewID."\n";
     
     #-----------------------------+
     # WRITE SEQUENCE RECORDS OUT  |
@@ -207,3 +203,5 @@ sub does_table_exist {
 # 11/20/2008
 # - Modifying to fit the general program options used 
 #   by the rest of the RepMiner package.
+
+
