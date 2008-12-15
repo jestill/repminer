@@ -164,9 +164,10 @@ my $show_version = 0;
 my $show_man = 0;
 my $show_help = 0;
 
-my $do_hsp = 0;  # 
-my $do_seq = 0;  # Try to fetch the sequence record from the db
-my $do_sim = 0;
+my $do_hsp = 0;    #  
+my $do_seq = 0;    # Try to fetch the sequence record from the db
+my $do_sim = 0;    # Generate the similarity matrix
+my $do_strong =0;  # Cluster directed graph by strongly connected components
 
 my $ok = GetOptions(# REQUIRED OPTIONS
 		    "i|infile=s"    => \$in_aba_blast,
@@ -176,6 +177,7 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "param=s"       => \$param_name,
 		    "do-hsp"        => \$do_hsp,
 		    "do-seq"        => \$do_seq,
+		    "do-strong"     => \$do_strong,
 		    # CYTOSCAPE OPTIONS
 		    "cyto-launch"   => \$do_launch_cytoscape,
 		    "cyto-path=s"   => \$cytoscape_path,
@@ -1796,15 +1798,6 @@ sub ParseTabBLAST2Graph {
     my $FastDir = $NetDir."fasta/";
     mkdir $FastDir, 0777 unless (-e $FastDir);
     
-    # OPEN FILE TO WRITE NODE ATTRIBUTE FILE
-    # FOR THE CLUSTER CLASSIFICATION
-    # This will allow for a check of the connected cluster
-    # compared to what I can visualize in  Cytoscape
-    my $NA_ConClust = $NetDir."ConnectClust.NA";
-    open (CONCLUST, ">$NA_ConClust") ||
-	die "Can not open $NA_RepName\n";
-    print CONCLUST "ConnectedCluster\n";
-    
     # Create and undirected graph object, the default is to
     # create a directed graph
     # Set the scope of the graph object to be local
@@ -2152,226 +2145,214 @@ sub ParseTabBLAST2Graph {
 
 
     #-----------------------------------------------------------+
-    # CLUSTER BY CONNECTED COMPONENTS OR TRANSITIVE CLOSURE     |
+    # CLUSTER BY CONNECTED COMPONENTS                           |
     #-----------------------------------------------------------+
+    my @cc; # Connected components object
+    my $clust_alg; # The clustering algorithm used
+                   # this will be used as part of the name output
+                   # It may make sense to make this an array
 
     if ($directed_graph) {
-	#-----------------------------+
-	# COMPUTE TRANSITIVE CLOSURE  |
-	#-----------------------------+
-#
-#	print STDERR "Computing the Transitive Closure\n";
-#	my $tcm = Graph::TransitiveClosure::Matrix->new($g);
-#	
-#	# The following returns a concatenated list of vertices
-        # this is just a string of numbers
-	#print STDERR $tcm->vertices;
-#	#    my $TestAns = "IDontKnow";
-#    if ($tcm->is_transitive('799','800')){$TestAns = "TRUE";}
-#    print "IT:\t799-800\t$TestAns\n";
-#    $TestAns = "FALSE";
-#    if ($tcm->is_transitive('799','100')){$TestAns = "TRUE";}
-#    print "IT:\t799-100\t$TestAns\n"; 
-#	
 
-	# TC EQUIVALENT TO CC IS STRONGLY CONNECTED COMPONECTS
-	# or WCC
+	# TC EQUIVALENT TO CC IS STRONGLY CONNECTED COMPONENTS
+	# or WEAKLY CONNECTED COMPONENTS
 
-	#-----------------------------+
-	# STRONGLY CONNECTED COMP     |
-	#-----------------------------+
-	# SCC - must be reachable from each other (transivity)
-	print STDERR "Computing the strongly connected components\n";
-	my @scc = $g->strongly_connected_components();
-	my $NumClust = 0;
-	foreach my $ComList (@scc) {
-	    $NumClust ++;
-	    my $TotComp = @$ComList;
-	    print STDERR "SCC_$NumClust:\t$TotComp\n";
+	if ($do_strong == 1) {
+	    #-----------------------------+
+	    # STRONGLY CONNECTED COMP     |
+	    #-----------------------------+
+	    # SCC - must be reachable from each other (transivity)
+	    $clust_alg = "SCC";
+	    print STDERR "Computing the strongly connected components\n";
+	    @cc = $g->strongly_connected_components();
 	}
-
-	#-----------------------------+
-	# WEAKLY CONNECTED COMP       |
-	#-----------------------------+
-	print STDERR "Computing the weakly connected components\n";
-	my @wcc = $g->weakly_connected_components();
-	my $NumClust = 0;
-	foreach my $ComList (@scc) {
-	    
-	    $NumClust ++;
-	    my $TotComp = @$ComList;
-	    print STDERR "WCC_$NumClust:\t$TotComp\n";
-
+	else {
+	    #-----------------------------+
+	    # WEAKLY CONNECTED COMP       |
+	    #-----------------------------+
+	    $clust_alg = "WCC";
+	    print STDERR "Computing the weakly connected components\n";
+	    @cc = $g->weakly_connected_components();
 	}
 
     }
     else {
 	#-----------------------------+
-	# WORK WITH THE CONNECTED     |
-	# COMPONENETS OF THE GRAPH    |
+	# CONNECTED COMPONENTS        |
 	#-----------------------------+
 	# For a unidrected graph we can do the connected components
-	
+	$clust_alg = "CC";
 	print STDERR "Determining the connected components\n";
-	my $NumFam = 0;
-	my $NumClust = 0;
-	my @cc = $g->connected_components();
-	
-	foreach my $ComList (@cc)
-	{
-	    $NumClust++;
-	    print "CLUST_$NumClust:\n";
-	    my $NumComp = 0;
-	    
-	    
-	    # TotComp is the total number of components
-	    my $TotComp = @$ComList;
-	    print "\tComp:\t$TotComp\n";
-	    
-	    if ($TotComp > 1)
-	    {
-		
-		$NumMult++;
-		
-		my $ClustFastOut = $FastDir.
-		    "Seqs_CLUST$NumClust.fasta";
-		
-		open (CLUSTFASTA, ">".$ClustFastOut) ||
-		    die "Could not open file for writing:\n$ClustFastOut\n";
-		
-		# $IndComp in the individual component of the graph
-		for my $IndComp (@$ComList)
-		{
-		    $NumComp++;
-		    
-		    #-----------------------------+
-		    # DETERMINE AVERAGE PATH      |
-		    # LENGTH FOR THE NODE         |
-		    #-----------------------------+
-		    # This is very slow
-		    #print "\ttDeterming average path length\n";
-		    #my $apl = $g->average_path_length($IndComp) || "NULL"; 
-		    #print "\t$IndComp\t$apl\n";
-		    #print STDOUT "\t$IndComp\t$apl\n";
-		    
-		    #-----------------------------+
-		    # PRINT NODE ATTRIBUTE OUT    | 
-		    #-----------------------------+
-		    #print REPNAME $OutName."=".$Name."\n";
-		    print CONCLUST $IndComp."=CLUST_".$NumClust."\n";
-		    
-		    #-----------------------------+
-		    # FETCH SEQ ID DATA           |
-		    #-----------------------------+
-		    my $FetchIDQry = "SELECT id FROM tblSeqData".
-			" WHERE rownum=$IndComp";
-		    my $IDsth = $dbh->prepare($FetchIDQry);
-		    $IDsth->execute() || 
-			print "\nERROR: Can not fetch ID for $IndComp\n";
-		    my @ID_row_ref = $IDsth->fetchrow_array;
-		    my $ID = $ID_row_ref[0] || "0";
-		    
-		    #-----------------------------+
-		    # FETCH SEQUENCE DATA         |
-		    #-----------------------------+
-		    my $FetchSeqQry = "SELECT seq FROM tblSeqData".
-			" WHERE rownum=$IndComp";
-		    my $Seqsth = $dbh->prepare($FetchSeqQry);
-		    $Seqsth->execute() || 
-			print "\nERROR: Can not fetch seq for $IndComp\n";
-		    my @Seq_row_ref = $Seqsth->fetchrow_array;
-		    my $SeqString = $Seq_row_ref[0] || "0";
-		    
-		    #-----------------------------+
-		    # WRITE TO FASTA FILE         |
-		    #-----------------------------+
-		    #print CLUSTFASTA ">$ID\n";
-		    # Changed 06/27/2007 to include the rown
-		    print CLUSTFASTA ">$IndComp|$ID\n";
-		    print CLUSTFASTA "$SeqString\n";
-		    
-		} # End of for each individual component
-		
-		# Close the FASTA output file
-		close CLUSTFASTA;
-		
-	    } else { 
-		
-		$NumSing++;
-		
-		for my $IndComp (@$ComList)
-		{
-		    #-----------------------------+
-		    # OPEN SINGLETON FASTA FILE   |
-		    #-----------------------------+
-		    my $SingFastOut = $FastDir.
-			"Singletons.fasta";
-		    
-		    # This will append data to an already existing file
-		    open (SINGFASTA, ">>".$SingFastOut) ||
-			die "Could not open file for writing:\n$SingFastOut\n";
-		    
-		    #-----------------------------+
-		    # FETCH SEQ ID DATA           |
-		    #-----------------------------+
-		    my $FetchIDQry = "SELECT id FROM tblSeqData".
-			" WHERE rownum=$IndComp";
-		    my $IDsth = $dbh->prepare($FetchIDQry);
-		    $IDsth->execute() || 
-			print "\nERROR: Can not fetch ID for $IndComp\n";
-		    my @ID_row_ref = $IDsth->fetchrow_array;
-		    my $ID = $ID_row_ref[0] || "0";
-		    
-		    #-----------------------------+
-		    # FETCH SEQUENCE DATA         |
-		    #-----------------------------+
-		    my $FetchSeqQry = "SELECT seq FROM tblSeqData".
-			" WHERE rownum=$IndComp";
-		    my $Seqsth = $dbh->prepare($FetchSeqQry);
-		    $Seqsth->execute() || 
-			print "\nERROR: Can not fetch seq for $IndComp\n";
-		    my @Seq_row_ref = $Seqsth->fetchrow_array;
-		    my $SeqString = $Seq_row_ref[0] || "0";
-		    
-		    #-----------------------------+
-		    # WRITE TO FASTA FILE         |
-		    #-----------------------------+
-		    #print SINGFASTA ">CLUST_$NumClust|$ID\n";
-		    # Changed 06/27/2007
-		    print SINGFASTA ">CLUST_$NumClust|$IndComp|$ID\n";
-		    print SINGFASTA "$SeqString\n";
-		    
-		} # END of for each indcomp
-		
-	    } # End of TotComp > 1
-	    
-	    # print "\n";
-	    #print "\tComp:\t$NumComp\n";
-	    
-	    # Print the number of components in each cluster to the 
-	    # summary output file
-	    print STDOUT "CLUST_$NumClust:\t$NumComp\n";
-	    
-	} # End of for IndComp
-	
-	
-	print STDERR "SING:\t$NumSing\n";
-	print STDERR "GRPS:\t$NumMult\n";
-	print STDOUT "SING:\t$NumSing\n";
-	print STDOUT "GRPS:\t$NumMult\n";
-	
-	
-	
+	@cc = $g->connected_components();
 	
     }
+
+    #-----------------------------+
+    # OPEN FILE TO WRITE NODE     |
+    # ATTRIBUTE FILE              |
+    #-----------------------------+
+    # This will allow for a check of the connected cluster
+    # compared to what I can visualize in  Cytoscape
+    my $NA_ConClust = $NetDir.$clust_alg."ConnectClust.NA";
+    open (CONCLUST, ">$NA_ConClust") ||
+	die "Can not open $NA_RepName\n";
+    print CONCLUST $clust_alg."ConnectedCluster\n";
+
+
+    #-----------------------------+
+    # WORK WITH THE CONNECTED     |
+    # COMPONENT DATA              |
+    #-----------------------------+
+    my $NumClust = 0;
+    my $NumFam = 0;
+
+    # FASTA FILE FOR SINGLETONGS
+    # ASSUME WE WANT SINGLETONS ALL LUMPED TOGETHER
+    # IN A SINGLE FILE
+    my $SingFastOut = $FastDir."Seqs_".
+	$clust_alg."_Singletons.fasta";
+
+    # DROP EXISTING SINGLETONS FLIE
+    if (-e $SingFastOut) {
+	unlink ($SingFastOut);
+    }
+
+    foreach my $ComList (@cc)
+    {
+	$NumClust++;
+	# May want to put following in LOG file
+	print STDERR $clust_alg."_CLUST_$NumClust:\n";
+	my $NumComp = 0;
+	
+	# TotComp is the total number of components
+	my $TotComp = @$ComList;
+	print "\tComp:\t$TotComp\n";
+	
+	if ($TotComp > 1)
+	{
+	    
+	    $NumMult++;
+	    
+	    my $ClustFastOut = $FastDir.
+		"Seqs_".$clust_alg."_CLUST$NumClust.fasta";
+	    
+	    open (CLUSTFASTA, ">".$ClustFastOut) ||
+		die "Could not open file for writing:\n$ClustFastOut\n";
+	    
+	    # $IndComp in the individual component of the graph
+	    for my $IndComp (@$ComList)
+	    {
+		$NumComp++;
+		
+		#-----------------------------+
+		# PRINT NODE ATTRIBUTE OUT    | 
+		#-----------------------------+
+		print CONCLUST $IndComp."=".
+		    $clust_alg."CLUST_".$NumClust."\n";
+		
+		#-----------------------------+
+		# FETCH SEQ ID DATA           |
+		#-----------------------------+
+		my $FetchIDQry = "SELECT id FROM tblSeqData".
+		    " WHERE rownum=$IndComp";
+		my $IDsth = $dbh->prepare($FetchIDQry);
+		$IDsth->execute() || 
+		    print "\nERROR: Can not fetch ID for $IndComp\n";
+		my @ID_row_ref = $IDsth->fetchrow_array;
+		my $ID = $ID_row_ref[0] || "0";
+		
+		#-----------------------------+
+		# FETCH SEQUENCE DATA         |
+		#-----------------------------+
+		my $FetchSeqQry = "SELECT seq FROM tblSeqData".
+		    " WHERE rownum=$IndComp";
+		my $Seqsth = $dbh->prepare($FetchSeqQry);
+		$Seqsth->execute() || 
+		    print "\nERROR: Can not fetch seq for $IndComp\n";
+		my @Seq_row_ref = $Seqsth->fetchrow_array;
+		my $SeqString = $Seq_row_ref[0] || "0";
+		
+		#-----------------------------+
+		# WRITE TO FASTA FILE         |
+		#-----------------------------+
+		print CLUSTFASTA ">".$clust_alg."_CLUST_$NumClust|".
+		    "$IndComp|$ID\n";
+		print CLUSTFASTA "$SeqString\n";
+		
+	    } # End of for each individual component
+	    
+	    # Close the FASTA output file
+	    close CLUSTFASTA;
+	    
+	} 
+	else { 
+	    
+	    $NumSing++;
+	    
+	    for my $IndComp (@$ComList) {
+		#-----------------------------+
+		# OPEN SINGLETON FASTA FILE   |
+		#-----------------------------+
+		
+		# This will append data to an already existing file
+		open (SINGFASTA, ">>".$SingFastOut) ||
+		    die "Could not open file for writing:\n$SingFastOut\n";
+		
+		#-----------------------------+
+		# FETCH SEQ ID DATA           |
+		#-----------------------------+
+		my $FetchIDQry = "SELECT id FROM tblSeqData".
+		    " WHERE rownum=$IndComp";
+		my $IDsth = $dbh->prepare($FetchIDQry);
+		$IDsth->execute() || 
+		    print "\nERROR: Can not fetch ID for $IndComp\n";
+		my @ID_row_ref = $IDsth->fetchrow_array;
+		my $ID = $ID_row_ref[0] || "0";
+		
+		#-----------------------------+
+		# FETCH SEQUENCE DATA         |
+		#-----------------------------+
+		my $FetchSeqQry = "SELECT seq FROM tblSeqData".
+		    " WHERE rownum=$IndComp";
+		my $Seqsth = $dbh->prepare($FetchSeqQry);
+		$Seqsth->execute() || 
+		    print "\nERROR: Can not fetch seq for $IndComp\n";
+		my @Seq_row_ref = $Seqsth->fetchrow_array;
+		my $SeqString = $Seq_row_ref[0] || "0";
+		
+		#-----------------------------+
+		# WRITE TO FASTA FILE         |
+		#-----------------------------+
+		print SINGFASTA ">".$clust_alg."_CLUST_$NumClust|".
+		    "$IndComp|$ID\n";
+		print SINGFASTA "$SeqString\n";
+		
+	    } # END of for each indcomp
+	    
+	} # End of TotComp > 1
+	
+	# print "\n";
+	#print "\tComp:\t$NumComp\n";
+	
+	# Print the number of components in each cluster to the 
+	# summary output file
+	print STDOUT "CLUST_$NumClust:\t$NumComp\n";
+	
+    } # End of for IndComp
     
+    print STDERR "SING:\t$NumSing\n";
+    print STDERR "GRPS:\t$NumMult\n";
     
+    #-----------------------------------------------------------+
+    # GRAPH SUMMARY STATISTICS                                  |
+    #-----------------------------------------------------------+
     #-----------------------------+
     # ADDTIONAL GRAPH INFO        |
     #-----------------------------+
     #print STDERR "Determing average path length";
     #my $apl = $g->average_path_length;
     #print STDERR "APL:\t$apl\n";
+
 
     #-----------------------------+
     # GRAPH DIAMETER              |
@@ -4092,7 +4073,11 @@ VERSION: $Rev$
 # - Adding connected components options for a directed graph
 #   this should work for both the strong connected components
 #   as well as the weakly connected components.
-# -
+# ===
+# - Added do_strong [--do-strong] option to select the 
+#   clustering by strongly connected components for the 
+#   directed graph, other clustering is by the weakly
+#   connected components
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
