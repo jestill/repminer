@@ -166,6 +166,7 @@ my $show_help = 0;
 
 my $do_hsp = 0;  # 
 my $do_seq = 0;  # Try to fetch the sequence record from the db
+my $do_sim = 0;
 
 my $ok = GetOptions(# REQUIRED OPTIONS
 		    "i|infile=s"    => \$in_aba_blast,
@@ -463,7 +464,8 @@ print STDERR "Initializing database.\n" if $verbose;
 if ($BlastFormat == '8') {
 
     # Parse AxA to SIF Files
-    &ParseTabBLAST ($in_aba_blast);
+# TEMP COMMENT OUT 12/15/2008
+#    &ParseTabBLAST ($in_aba_blast);
 
     # Parse AxA to Graph Object and Classify
     # This generates the list of connected components
@@ -1792,7 +1794,7 @@ sub ParseTabBLAST2Graph {
     mkdir $FastDir, 0777 unless (-e $FastDir);
     
     # OPEN FILE TO WRITE NODE ATTRIBUTE FILE
-    # FOR THE CLUSTER CLASSIFICATIO
+    # FOR THE CLUSTER CLASSIFICATION
     # This will allow for a check of the connected cluster
     # compared to what I can visualize in  Cytoscape
     my $NA_ConClust = $NetDir."ConnectClust.NA";
@@ -1828,6 +1830,8 @@ sub ParseTabBLAST2Graph {
 
     # Vars to hold the concatenation of qry and subject
 
+
+
     #-----------------------------+
     # LOAD ALL POSSIBLE NODES     |
     #-----------------------------+
@@ -1849,6 +1853,28 @@ sub ParseTabBLAST2Graph {
 		$MisMatch, $GapOpen, 
 		$QStart,$QEnd, $SStart, $SEnd,
 		$EVal, $BitScore) = split(/\t/);
+
+
+
+
+	    #-----------------------------+
+	    # BIOPERL BLAST
+	    #-----------------------------+
+	    #$QryId;
+	    #$SubId;
+	    #$PID;
+	    #$Len;
+	    #$MisMatch; 
+	    #$GapOpen; 
+	    #$QStart;
+	    #$QEnd; 
+	    #$SStart; 
+	    #$SEnd;
+	    #$EVal; 
+	    #$BitScore;
+
+
+
 	    # Trim leading white space from Bit score
 	    $BitScore =~ s/^\s*(.*?)\s*$/$1/;
 
@@ -1890,154 +1916,201 @@ sub ParseTabBLAST2Graph {
 
     #print STDERR "$NumNodes Nodes\n";
 
-    #-----------------------------+
-    # ADD EDGES                   |
-    #-----------------------------+
-    # Edge weight can be set by
-    # $g->add_weighted_edge ($u, $v, $weight);
 
-    open (BLASTIN, "<".$TabBlastFile) ||
-	die "Can not open BLAST file.$TabBlastFile.\n";
 
-    while (<BLASTIN>)
-    {
-	chomp;                 # Remove newline character
-	unless (m/^\#.*/)       # Ignore comment lines, works with -m 9 output
-	{
-	    $HitNum++;
-	    
-	    my ($QryId, $SubId, $PID, $Len, 
-		$MisMatch, $GapOpen, 
-		$QStart,$QEnd, $SStart, $SEnd,
-		$EVal, $BitScore) = split(/\t/);
-	    # Trim leading white space from Bit score
-	    $BitScore =~ s/^\s*(.*?)\s*$/$1/;
 
-	    # The following is a temp fix, this will probably
-	    # only work as expected for two vars split by a pipe character
-	    my ($XCrd, $SomeCrap) = split(/\|/, $QryId);
-	    $XCrd = int($XCrd);
-	    
-	    my ($YCrd, $MoreCrap) = split(/\|/, $SubId);
+
+
+
+
+    #/////////////////////////////////////////////////
+    # SWITCHING TO SeqIO
+    #////////////////////////////////////////////////
+
+    my $blast_report;
+
+    $blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
+					'-file'   =>  $TabBlastFile)
+	|| die "Could not open BLAST input file:\n$TabBlastFile.\n";
+
+
+
+    my $XCrd;
+    my $YCrd;
+
+    while (my $blast_result = $blast_report->next_result()) {
+
+	my @qry_split = split(/\|/, $blast_result->query_name);
+	$XCrd = $qry_split[0];
+	$XCrd = int($XCrd);
+
+	while (my $blast_hit = $blast_result->next_hit()) {
+
+	    my @hit_split = split(/\|/, $blast_hit->name);
+	    $YCrd = $hit_split[0];
 	    $YCrd = int($YCrd);
 
-	    # Added 05/16/2007 
-	    $CurCatID = $XCrd.":".$YCrd;
-	    # Draw a new edge unless it has already been drawn, this assumes
-	    # the the order HSPs is ordered such that all HSPs for a subject
-	    # sequence will occur in the same order. This only returns the
-	    # information for the first hit encountered in the tab blast
-	    # output. -- 05/17/2007
-	    unless ( $CurCatID =~ $PreCatID)
-	    {
-		# Increment the number of edges then decide
-		# how to draw the graph
-		$NumEdges++;         
+	    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
+	    #-----------------------------+
+	    # PRINT SIMILARITY VALUE      |
+	    #-----------------------------+
+	    if ($do_sim) {
+		print SIMOUT "$XCrd\t$YCrd\t";
+		print SIMOUT $blast_hit->bits()."\n";
+
+		# Alternative to bits is significance value
+		#print SIMOUT $blast_hit->significance()."\n";
+
+		# Raw score is also an option
+		#print SIMOUT $blast_hit->bits()."\n";
+	    }
+	    
+#
+#
+	    $NumEdges++;         
+#	    
+	    if ($GraphDir == '0') {
+		#-----------------------------+
+		# UNDIRECTED x < y            |
+		#-----------------------------+
+		if ($XCrd < $YCrd) {
+		    print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
+		    $g->add_edge($XCrd, $YCrd);
+		    
+		} # End of if XCrd > YCrd
 		
-		if ($GraphDir == '0')
-		{
-		    #-----------------------------+
-		    # UNDIRECTED x < y            |
-		    #-----------------------------+
-		    if ($XCrd < $YCrd) {
-			print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
-			$g->add_edge($XCrd, $YCrd);
-			
-		    } # End of if XCrd > YCrd
+	    } 
+	    elsif ($GraphDir == '1') {
+		
+		#-----------------------------+
+		# UNDIRECTED x != y           |
+		#-----------------------------+ 
+		# Using (bl) for both directed makes digraph into unigraph
+		# This is sloppy and depends on cytoscape to interpret
+		if ($XCrd != $YCrd) {
+		    print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
+		    $g->add_edge($XCrd, $YCrd);
+		} # End of if XCrd > YCrd
+		
+	    } 
+	    elsif ($GraphDir == '2') {
+		
+		#-----------------------------+
+		# UNDIRECTED ALL x and y      |
+		#-----------------------------+
+
+		# Add edge to graph object
+		print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
+		$g->add_edge($XCrd, $YCrd);
+
+		# Cytoscape files
+		print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
+		print BITOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->bits()."\n";  # bit score
+		print SIGOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->significance()."\n";   # e value
+		#print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
+		
+	    } 
+
+	    elsif ($GraphDir == '3') {
+		#-----------------------------+
+		# DIRECTED x < y              |
+		#-----------------------------+
+		if ($XCrd < $YCrd) {
+
+		    # Add edge to graph object
+		    print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
+		    $g->add_edge($XCrd, $YCrd);
 		    
-		} elsif ($GraphDir == '1'){
-		    
-		    #-----------------------------+
-		    # UNDIRECTED x != y           |
-		    #-----------------------------+ 
-		    # Using (bl) for both directed makes digraph into unigraph
-		    # This is sloppy and depends on cytoscape to interpret
-		    if ($XCrd != $YCrd) {
-			print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
-			$g->add_edge($XCrd, $YCrd);
-		    } # End of if XCrd > YCrd
-		    
-		} elsif ($GraphDir == '2'){
-		    #-----------------------------+
-		    # UNDIRECTED ALL x and y      |
-		    #-----------------------------+
-		    # All x and y
+		    # Cytoscape files
 		    print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-		    print BITOUT $XCrd." (bl) ".$YCrd." = ".$BitScore."\n";
-		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-		    print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
+		    print BITOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->bits()."\n";  # bit score
+		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->significance()."\n";   # e value
 		    
-		} elsif ($GraphDir == '3') {
-		    #-----------------------------+
-		    # DIRECTED x < y              |
-		    #-----------------------------+
-		    # Same output as undirected graph
-		    # Cytoscape interpets
-		    if ($XCrd < $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		} elsif ($GraphDir == '4') {
-		    #-----------------------------+
-		    # DIRECTED x != y             |
-		    #-----------------------------+
-		    # The use of bot ensures that the x < y is treated as 
-		    # different information then x > y.
-		    if ($XCrd < $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		    if ($XCrd > $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbot\t".$YCrd."\n";
-			print BITOUT $XCrd." (bot) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bot) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bot) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		} elsif ($GraphDir == '5') {
-		    #-----------------------------+
-		    # DIRECTED ALL x and y        |
-		    #-----------------------------+
-		    # All x and y
-		    # The use of bot ensures that the x < y is treated as 
-		    # different information then x > y.
-		    if ($XCrd <= $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		    if ($XCrd > $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbot\t".$YCrd."\n";
-			print BITOUT $XCrd." (bot) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bot) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bot) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		} # End of if statements for GraphDir
+		} # End of if XCrd > YCrd
+		
+	    }
+	    elsif ($GraphDir == '4') {
+		#-----------------------------+
+		# DIRECTED x != y             |
+		#-----------------------------+
+		# The use of bot ensures that the x < y is treated as 
+		# different information then x > y by cytoscape. 
+		# bot refers to the bottom part of the all-by-all matrix
 
-	    } # End of unless CurCatID =~ PrevCatID    
-	    $PreCatID = $CurCatID;
+		if ($XCrd < $YCrd) {
+		    
+		    # GRAPH OBJECT
+		    $g->add_edge($XCrd, $YCrd);
 
-	} # End of unless commented out string
-    } # End of while statement for working throught BLAST file
+		    # CYTOSCAPE FILES
+		    print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
+		    print BITOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->bits()."\n";
+		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->significance()."\n";
+		} # End of if XCrd > YCrd
+		
+		if ($XCrd > $YCrd) {
+		    # GRAPH OBJECT
+		    $g->add_edge($XCrd, $YCrd);
+
+		    # CYTOSCAPE FILES
+		    print SIFOUT $XCrd."\tbot\t".$YCrd."\n";
+		    print BITOUT $XCrd." (bot) ".$YCrd." = ".
+			$blast_hit->bits()."\n";
+		    print SIGOUT $XCrd." (bot) ".$YCrd." = ".
+			$blast_hit->significance()."\n";
+		} # End of if XCrd > YCrd
+		
+	    }
+
+	    elsif ($GraphDir == '5') {
+		#-----------------------------+
+		# DIRECTED ALL x and y        |
+		#-----------------------------+
+		# All x and y
+		# The use of bot ensures that the x < y is treated as 
+		# different information then x > y.
+
+		if ($XCrd <= $YCrd) {
+
+		    # GRAPH OBJECT
+		    $g->add_edge($XCrd, $YCrd);
+
+		    # CYTOSCAPE FILES
+		    print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
+		    print BITOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->bits()."\n";
+		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->significance()."\n";
+		} # End of if XCrd > YCrd
+		
+		if ($XCrd > $YCrd) {
+
+		    # GRAPH OBJECT
+		    $g->add_edge($XCrd, $YCrd);
+
+		    # CYTOSCAPE FILES	    
+		    print SIFOUT $XCrd."\tbot\t".$YCrd."\n";
+		    print BITOUT $XCrd." (bot) ".$YCrd." = ".
+			$blast_hit->bits()."\n";
+		    print SIGOUT $XCrd." (bot) ".$YCrd." = ".
+			$blast_hit->significance()."\n";
+		} # End of if XCrd > YCrd
+		
+	    } # End of if statements for GraphDir
+
+	} # End of BLAST next hit
+    } # End of BLAST parsing
+
+
+
+
+
+
+
+
 
 
     #-----------------------------+
@@ -3944,6 +4017,9 @@ VERSION: $Rev$
 #   for the database, and create a NA file for that sequence
 # - Added the fetch sequence string to the ParseTabBLAST2Graph
 #   subfunction
+#
+# 12/15/2008
+# - Switched ParseTabBLAST2Graph to the bioperl blast parser
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
