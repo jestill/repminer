@@ -168,6 +168,7 @@ my $do_hsp = 0;    #
 my $do_seq = 0;    # Try to fetch the sequence record from the db
 my $do_sim = 0;    # Generate the similarity matrix
 my $do_strong =0;  # Cluster directed graph by strongly connected components
+my $graph_stat;  # Path for file for graph statistics
 
 my $ok = GetOptions(# REQUIRED OPTIONS
 		    "i|infile=s"    => \$in_aba_blast,
@@ -178,6 +179,7 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "do-hsp"        => \$do_hsp,
 		    "do-seq"        => \$do_seq,
 		    "do-strong"     => \$do_strong,
+		    "graph-stat=s"  => \$graph_stat,
 		    # CYTOSCAPE OPTIONS
 		    "cyto-launch"   => \$do_launch_cytoscape,
 		    "cyto-path=s"   => \$cytoscape_path,
@@ -1760,37 +1762,6 @@ sub ParseTabBLAST2Graph {
 
     my $TabBlastFile = $_[0];
 
-
-# Currently this will only work for undirected graph
-# For an undirected graph we want the connected_componenest
-
-# For a directed graph we can choose the
-# strongly_connected_components   OR 
-# weakly_connected_components
-
-
-#-----------------------------+
-# LOAD A TAB DELIMITED ALL BY |
-# ALL BLAST REPORT            |
-#-----------------------------+
-# This is the tab delimited text file produced from 
-# the m8 or m9 option in BLAST, use of the m9 option
-# will required that lines starting with # must
-# be ignored, I therfore have the regexp (m/^\#.*/).
-# The available information:
-#  - $QryId ----> Id of the query sequence 
-#  - $SubId ----> Id of the subect seqence (from the database
-#  - $PID ------> Percent ID
-#  - $Len ------> Alignment length
-#  - $MisMatch -> Number of mismatches
-#  - $GapOpen --> Number of gap openings
-#  - $QStart ---> Start of alignment on query sequence
-#  - $QEnd -----> End of alignment on query sequence
-#  - $SStart ---> Start of aligment on Subject
-#  - $SEnd -----> End of alignment on Subject 
-#  - $EVal -----> E value of hit
-#  - $BitScore -> Bit Score of hit
-    
     my $StartTime = time;
     my @tmpqryid = "";    
 
@@ -1820,7 +1791,6 @@ sub ParseTabBLAST2Graph {
 	$g = Graph->new (directed => 0);
     }
 
-
     #-----------------------------------------------------------+
     # LOAD ALL POSSIBLE NODES                                   |
     #-----------------------------------------------------------+
@@ -1834,7 +1804,6 @@ sub ParseTabBLAST2Graph {
     # Query Subject pair instead of each HSP
     my $CurCatID = ""; # Previous concat ID
     my $PreCatID = ""; # Current concat ID
-
 
     open (BLASTIN, "<".$TabBlastFile) ||
 	die "Can not open BLAST file.$TabBlastFile.\n";
@@ -2133,16 +2102,6 @@ sub ParseTabBLAST2Graph {
     #print "The graph is $g\n";
     
 
-    #-----------------------------+
-    # PRINT GRAPH SUMMARY INFO    |
-    #-----------------------------+
-    # Alternatively, this could also print to a log file
-    print STDERR "Counting nodes and edges\n" if $verbose;
-    my $NumObjNodes = $g->vertices;
-    print STDERR "Nodes:\t$NumObjNodes\n";
-    my $NumObjEdges = $g->edges;
-    print STDERR "Edges:\t$NumObjEdges\n";
-
 
     #-----------------------------------------------------------+
     # CLUSTER BY CONNECTED COMPONENTS                           |
@@ -2193,11 +2152,10 @@ sub ParseTabBLAST2Graph {
     #-----------------------------+
     # This will allow for a check of the connected cluster
     # compared to what I can visualize in  Cytoscape
-    my $NA_ConClust = $NetDir.$clust_alg."ConnectClust.NA";
+    my $NA_ConClust = $NetDir.$clust_alg."_Clust.NA";
     open (CONCLUST, ">$NA_ConClust") ||
 	die "Can not open $NA_RepName\n";
-    print CONCLUST $clust_alg."ConnectedCluster\n";
-
+    print CONCLUST $clust_alg."_Clust\n";
 
     #-----------------------------+
     # WORK WITH THE CONNECTED     |
@@ -2340,30 +2298,104 @@ sub ParseTabBLAST2Graph {
 	
     } # End of for IndComp
     
+
+    #-----------------------------+
+    # PRINT GRAPH SUMMARY INFO    |
+    #-----------------------------+
+    # Alternatively, this could also print to a log file
+    print STDERR "Counting nodes and edges\n" if $verbose;
+    my $NumObjNodes = $g->vertices;
+    print STDERR "Nodes:\t$NumObjNodes\n";
+    my $NumObjEdges = $g->edges;
+    print STDERR "Edges:\t$NumObjEdges\n";
     print STDERR "SING:\t$NumSing\n";
     print STDERR "GRPS:\t$NumMult\n";
     
+
     #-----------------------------------------------------------+
     # GRAPH SUMMARY STATISTICS                                  |
     #-----------------------------------------------------------+
-    #-----------------------------+
-    # ADDTIONAL GRAPH INFO        |
-    #-----------------------------+
-    #print STDERR "Determing average path length";
-    #my $apl = $g->average_path_length;
-    #print STDERR "APL:\t$apl\n";
+    # Determing graph summary statistics in PERL should really only
+    # be done for small to medium sized graphs. For larger graphs
+    # the R package is probably the best alternative.
+    if ($graph_stat) {
+
+	open (GSTAT, ">graph_stat") ||
+	    die "Can not open the graph stats file:\n$graph_stat\n";
+
+	#-----------------------------+
+	# PRINT GRAPH SUMMARY INFO    |
+	#-----------------------------+
+	# Alternatively, this could also print to a log file
+	print STDERR "Counting nodes and edges\n" if $verbose;
+	my $NumObjNodes = $g->vertices;
+	print GSTAT "NODES:\t$NumObjNodes\n";
+	my $NumObjEdges = $g->edges;
+	print GSTAT "EDGES:\t$NumObjEdges\n";
+
+	#my $graph_avg_degree = $g->average_degree;
+	#print GSTAT "AVG_DEG:\n"$graph_avg_degree;
+
+	#-----------------------------+
+	# CLUSTERING STATS            |
+	#-----------------------------+
+	print GSTAT "# CLUSTERING STATS\n";
+	print GSTAT "ALG:\t$clust_alg\t\n";
+	print GSTAT "SING:\t$NumSing\n";
+	print GSTAT "GRPS:\t$NumMult\n";
+
+	#-----------------------------+
+	# AVERAGE PATH LENGTH         |
+	#-----------------------------+
+	# This is slow
+	#print STDERR "Determing average path length\n";
+	#my $apl = $g->average_path_length;
+	#print STDERR "APL:\t$apl\n";
+
+	#-----------------------------+
+	# GRAPH DIAMETER              |
+	#-----------------------------+
+	# This is slow
+	#print STDERR "Determing graph diameter\n";
+	#my $gd = $g->diameter;
+	#print STDERR "GraphDiam:\t$gd\n";
+
+	#-----------------------------+
+	# AVERAGE PATH LENGTH         |
+	#-----------------------------+
+	## This will generate the path length for each node
+	#print STDERR "Determing average path lengths\n";
+	#my @V = $g->vertices;
+	#@V = sort{$a <=> $b} (@V);
+	#foreach my $IndV (@V) {
+	#    print STDERR "Determing length for $IndV\n" if $verbose;
+	#    my $apl = $g->average_path_length($IndV) || "NULL"; 
+	#    print STDERR "$IndV\t$apl\n";
+	#}
+
+	#-----------------------------+
+	# OUT NODE/IN DEGREE DISTN    |
+	#-----------------------------+
+	if ($directed_graph) {
+	    my @V = $g->vertices;
+	    @V = sort{$a <=> $b} (@V);
+
+	    foreach my $IndV (@V) {
+		my $ver_degree = $g->vertex_degree($IndV);
+		my $in_degree = $g->in_degree($IndV);
+		my $out_degree = $g->out_degree($IndV);
+		print STDERR "$IndV\t$ver_degree\t$in_degree\t$out_degree\n";
+
+	    }
+	}
+
+	close (GSTAT);
+
+    }
 
 
-    #-----------------------------+
-    # GRAPH DIAMETER              |
-    #-----------------------------+
-    # Slow
-    # Graph diameter should be determined for
-    # each of the clusters
-#    print "Determing graph diameter\n";
-#    my $gd = $g->diameter;
-#    print "GraphDiam:\t$gd\n";
-#    print STDOUT "GraphDiam:\t$gd\n";
+	
+
 
     
     
@@ -2378,19 +2410,6 @@ sub ParseTabBLAST2Graph {
 
     # Average path length is the average shortest path
     
-    #-----------------------------+
-    # AVERAGE PATH LENGTH         |
-    #-----------------------------+
-#    print "Determing average path lengths\n";
-#    my @V = $g->vertices;
-#    @V = sort{$a <=> $b} (@V);
-#    foreach my $IndV (@V)
-#    {
-#	print "Determing length for $IndV\n";
-#	my $apl = $g->average_path_length($IndV) || "NULL"; 
-#	print "$IndV\t$apl\n";
-#	print STDOUT "$IndV\t$apl\n";
-#    }
     
 
     #//////////////////////////////////////////////////////////////
@@ -4078,6 +4097,7 @@ VERSION: $Rev$
 #   clustering by strongly connected components for the 
 #   directed graph, other clustering is by the weakly
 #   connected components
+# - Added graph stats option
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
