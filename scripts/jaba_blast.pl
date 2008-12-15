@@ -8,7 +8,7 @@
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: jestill_at_sourceforge.net                       |
 # STARTED: 06/14/2006                                       |
-# UPDATED: 12/11/2008                                       |
+# UPDATED: 12/15/2008                                       |
 #                                                           |
 # SHORT DESCRIPTION:                                        |
 #  All by all blast analysis program. Creates matrix and    |
@@ -1756,6 +1756,9 @@ sub ParseTabBLAST {
 
 sub ParseTabBLAST2Graph {
 
+    my $TabBlastFile = $_[0];
+
+
 # Currently this will only work for undirected graph
 # For an undirected graph we want the connected_componenest
 
@@ -1807,34 +1810,39 @@ sub ParseTabBLAST2Graph {
     # Set the scope of the graph object to be local
     my $g;
     
-    # Undirected graph
-    # The graph must be undirected to return the clusters
+    #-----------------------------+
+    # SET GRAPH DIRECTION         |
+    # LOAD GRAPH OBJECT           |
+    #-----------------------------+
+    my $directed_graph = 0;
+    if ( $GraphDir == '3' ||  $GraphDir == '4' ||  $GraphDir == '5' ) {
+	$directed_graph = 1;
+    }
+    
     # otherwise we must deal with transitive closure approaches
-    $g = Graph->new (directed => 0);
+    if ( $directed_graph == 1) {
+	$g = Graph->new (directed => 1);
+    }
+    else {
+	$g = Graph->new (directed => 0);
+    }
 
-    # Will try to figure out which one is quicker
-    my $TabBlastFile = $_[0];
 
+    #-----------------------------------------------------------+
+    # LOAD ALL POSSIBLE NODES                                   |
+    #-----------------------------------------------------------+
     # TOO MANY VAR FOR TESTING OUTPUT AND DEBUG
-#    my $TooMany = 100;
     my $HitNum = 0;  
     my $NumEdges = 0; # The number of edges
     my $NumSing = 0;  # The number of singletons
     my $NumMult = 0;  # The number of clustes with multiple seqs
-    #my $Num = 0; 
 	
     # Concatenated IDs are used to return only a single edge for each
     # Query Subject pair instead of each HSP
     my $CurCatID = ""; # Previous concat ID
     my $PreCatID = ""; # Current concat ID
 
-    # Vars to hold the concatenation of qry and subject
 
-
-
-    #-----------------------------+
-    # LOAD ALL POSSIBLE NODES     |
-    #-----------------------------+
     open (BLASTIN, "<".$TabBlastFile) ||
 	die "Can not open BLAST file.$TabBlastFile.\n";
 
@@ -1853,26 +1861,6 @@ sub ParseTabBLAST2Graph {
 		$MisMatch, $GapOpen, 
 		$QStart,$QEnd, $SStart, $SEnd,
 		$EVal, $BitScore) = split(/\t/);
-
-
-
-
-	    #-----------------------------+
-	    # BIOPERL BLAST
-	    #-----------------------------+
-	    #$QryId;
-	    #$SubId;
-	    #$PID;
-	    #$Len;
-	    #$MisMatch; 
-	    #$GapOpen; 
-	    #$QStart;
-	    #$QEnd; 
-	    #$SStart; 
-	    #$SEnd;
-	    #$EVal; 
-	    #$BitScore;
-
 
 
 	    # Trim leading white space from Bit score
@@ -1914,25 +1902,15 @@ sub ParseTabBLAST2Graph {
     # Close the BLAST file
     close BLASTIN;
 
-    #print STDERR "$NumNodes Nodes\n";
-
-
-
-
-
-
-
-
-    #/////////////////////////////////////////////////
-    # SWITCHING TO SeqIO
-    #////////////////////////////////////////////////
+    #-----------------------------------------------------------+
+    # ADD EDGES TO GRAPH                                        |
+    #-----------------------------------------------------------+
 
     my $blast_report;
 
     $blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
 					'-file'   =>  $TabBlastFile)
 	|| die "Could not open BLAST input file:\n$TabBlastFile.\n";
-
 
 
     my $XCrd;
@@ -1955,6 +1933,8 @@ sub ParseTabBLAST2Graph {
 	    #-----------------------------+
 	    # PRINT SIMILARITY VALUE      |
 	    #-----------------------------+
+	    # NEED OPTIONS FOR SIM VAL TO PRINT
+	    # --sim-val bitscore, eval
 	    if ($do_sim) {
 		print SIMOUT "$XCrd\t$YCrd\t";
 		print SIMOUT $blast_hit->bits()."\n";
@@ -1965,22 +1945,30 @@ sub ParseTabBLAST2Graph {
 		# Raw score is also an option
 		#print SIMOUT $blast_hit->bits()."\n";
 	    }
-	    
-#
-#
+
 	    $NumEdges++;         
-#	    
+
 	    if ($GraphDir == '0') {
 		#-----------------------------+
 		# UNDIRECTED x < y            |
 		#-----------------------------+
 		if ($XCrd < $YCrd) {
-		    print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
+
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
 		    $g->add_edge($XCrd, $YCrd);
+
+		    # CYTOSCAPE FILES
+		    print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
+		    print BITOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->bits()."\n";  # bit score
+		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->significance()."\n";   # e value
 		    
 		} # End of if XCrd > YCrd
 		
-	    } 
+	    }
+
 	    elsif ($GraphDir == '1') {
 		
 		#-----------------------------+
@@ -1989,57 +1977,82 @@ sub ParseTabBLAST2Graph {
 		# Using (bl) for both directed makes digraph into unigraph
 		# This is sloppy and depends on cytoscape to interpret
 		if ($XCrd != $YCrd) {
-		    print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
+
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
+		    # GRAPH OBJECT
 		    $g->add_edge($XCrd, $YCrd);
+
+
+		    # CYTOSCAPE FILES
+		    print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
+		    print BITOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->bits()."\n";  # bit score
+		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->significance()."\n";   # e value
+
 		} # End of if XCrd > YCrd
 		
 	    } 
-	    elsif ($GraphDir == '2') {
-		
-		#-----------------------------+
-		# UNDIRECTED ALL x and y      |
-		#-----------------------------+
 
-		# Add edge to graph object
-		print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
+
+	    #-----------------------------+
+	    # UNDIRECTED ALL x and y      |
+	    #-----------------------------+
+	    elsif ($GraphDir == '2') {
+
+		print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
+		# GRAPH OBJECT
 		$g->add_edge($XCrd, $YCrd);
 
-		# Cytoscape files
+		# CYTOSCAPE FILES
 		print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-		print BITOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->bits()."\n";  # bit score
-		print SIGOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->significance()."\n";   # e value
+		print BITOUT $XCrd." (bl) ".$YCrd." = ".
+		    $blast_hit->bits()."\n";  # bit score
+		print SIGOUT $XCrd." (bl) ".$YCrd." = ".
+		    $blast_hit->significance()."\n";   # e value
 		#print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
 		
 	    } 
 
+
+	    #-----------------------------+
+	    # DIRECTED x < y              |
+	    #-----------------------------+
 	    elsif ($GraphDir == '3') {
-		#-----------------------------+
-		# DIRECTED x < y              |
-		#-----------------------------+
 		if ($XCrd < $YCrd) {
 
-		    # Add edge to graph object
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
+		    # GRAPH OBJECT
 		    print STDERR "Adding Edge $XCrd-->$YCrd\n" if $verbose;
 		    $g->add_edge($XCrd, $YCrd);
 		    
-		    # Cytoscape files
+		    # CYTOSCAPE FILES
 		    print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-		    print BITOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->bits()."\n";  # bit score
-		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".$blast_hit->significance()."\n";   # e value
+		    print BITOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->bits()."\n";  # bit score
+		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->significance()."\n";   # e value
 		    
 		} # End of if XCrd > YCrd
 		
 	    }
+
+	    #-----------------------------+
+	    # DIRECTED x != y             |
+	    #-----------------------------+
 	    elsif ($GraphDir == '4') {
-		#-----------------------------+
-		# DIRECTED x != y             |
-		#-----------------------------+
 		# The use of bot ensures that the x < y is treated as 
 		# different information then x > y by cytoscape. 
 		# bot refers to the bottom part of the all-by-all matrix
 
+
 		if ($XCrd < $YCrd) {
 		    
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
 		    # GRAPH OBJECT
 		    $g->add_edge($XCrd, $YCrd);
 
@@ -2052,6 +2065,9 @@ sub ParseTabBLAST2Graph {
 		} # End of if XCrd > YCrd
 		
 		if ($XCrd > $YCrd) {
+
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
 		    # GRAPH OBJECT
 		    $g->add_edge($XCrd, $YCrd);
 
@@ -2065,15 +2081,19 @@ sub ParseTabBLAST2Graph {
 		
 	    }
 
+
+	    #-----------------------------+
+	    # DIRECTED ALL x and y        |
+	    #-----------------------------+
 	    elsif ($GraphDir == '5') {
-		#-----------------------------+
-		# DIRECTED ALL x and y        |
-		#-----------------------------+
+
 		# All x and y
 		# The use of bot ensures that the x < y is treated as 
 		# different information then x > y.
 
 		if ($XCrd <= $YCrd) {
+
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
 
 		    # GRAPH OBJECT
 		    $g->add_edge($XCrd, $YCrd);
@@ -2084,9 +2104,12 @@ sub ParseTabBLAST2Graph {
 			$blast_hit->bits()."\n";
 		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".
 			$blast_hit->significance()."\n";
+
 		} # End of if XCrd > YCrd
 		
 		if ($XCrd > $YCrd) {
+
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
 
 		    # GRAPH OBJECT
 		    $g->add_edge($XCrd, $YCrd);
@@ -2097,18 +2120,14 @@ sub ParseTabBLAST2Graph {
 			$blast_hit->bits()."\n";
 		    print SIGOUT $XCrd." (bot) ".$YCrd." = ".
 			$blast_hit->significance()."\n";
+
 		} # End of if XCrd > YCrd
 		
 	    } # End of if statements for GraphDir
 
+
 	} # End of BLAST next hit
     } # End of BLAST parsing
-
-
-
-
-
-
 
 
 
@@ -2120,36 +2139,237 @@ sub ParseTabBLAST2Graph {
     # as separated by -, singletons are printed at the end
     #print "The graph is $g\n";
     
-    #-----------------------------+
-    # COMPUTE TRANSITIVE CLOSURE  |
-    #-----------------------------+
-    # Transitive Closure only works for directed graphs
-#    print "Computing the TransitiveClosure\n";
-#    my $tcm = Graph::TransitiveClosure::Matrix->new($g);
-#    
-#    # The following returns a concatenated list of vertices
-#    #print $tcm->vertices;
-#
-#    my $TestAns = "IDontKnow";
-#    if ($tcm->is_transitive('799','800')){$TestAns = "TRUE";}
-#    print "IT:\t799-800\t$TestAns\n";
-#    $TestAns = "FALSE";
-#    if ($tcm->is_transitive('799','100')){$TestAns = "TRUE";}
-#    print "IT:\t799-100\t$TestAns\n"; 
-    
+
     #-----------------------------+
     # PRINT GRAPH SUMMARY INFO    |
     #-----------------------------+
-    print "Counting nodes and edges\n";
+    # Alternatively, this could also print to a log file
+    print STDERR "Counting nodes and edges\n" if $verbose;
     my $NumObjNodes = $g->vertices;
     print STDERR "Nodes:\t$NumObjNodes\n";
     my $NumObjEdges = $g->edges;
     print STDERR "Edges:\t$NumObjEdges\n";
 
+
+    #-----------------------------------------------------------+
+    # CLUSTER BY CONNECTED COMPONENTS OR TRANSITIVE CLOSURE     |
+    #-----------------------------------------------------------+
+
+    if ($directed_graph) {
+	#-----------------------------+
+	# COMPUTE TRANSITIVE CLOSURE  |
+	#-----------------------------+
+#
+#	print STDERR "Computing the Transitive Closure\n";
+#	my $tcm = Graph::TransitiveClosure::Matrix->new($g);
+#	
+#	# The following returns a concatenated list of vertices
+        # this is just a string of numbers
+	#print STDERR $tcm->vertices;
+#	#    my $TestAns = "IDontKnow";
+#    if ($tcm->is_transitive('799','800')){$TestAns = "TRUE";}
+#    print "IT:\t799-800\t$TestAns\n";
+#    $TestAns = "FALSE";
+#    if ($tcm->is_transitive('799','100')){$TestAns = "TRUE";}
+#    print "IT:\t799-100\t$TestAns\n"; 
+#	
+
+	# TC EQUIVALENT TO CC IS STRONGLY CONNECTED COMPONECTS
+	# or WCC
+
+	#-----------------------------+
+	# STRONGLY CONNECTED COMP     |
+	#-----------------------------+
+	# SCC - must be reachable from each other (transivity)
+	print STDERR "Computing the strongly connected components\n";
+	my @scc = $g->strongly_connected_components();
+	my $NumClust = 0;
+	foreach my $ComList (@scc) {
+	    $NumClust ++;
+	    my $TotComp = @$ComList;
+	    print STDERR "SCC_$NumClust:\t$TotComp\n";
+	}
+
+	#-----------------------------+
+	# WEAKLY CONNECTED COMP       |
+	#-----------------------------+
+	print STDERR "Computing the weakly connected components\n";
+	my @wcc = $g->weakly_connected_components();
+	my $NumClust = 0;
+	foreach my $ComList (@scc) {
+	    
+	    $NumClust ++;
+	    my $TotComp = @$ComList;
+	    print STDERR "WCC_$NumClust:\t$TotComp\n";
+
+	}
+
+    }
+    else {
+	#-----------------------------+
+	# WORK WITH THE CONNECTED     |
+	# COMPONENETS OF THE GRAPH    |
+	#-----------------------------+
+	# For a unidrected graph we can do the connected components
+	
+	print STDERR "Determining the connected components\n";
+	my $NumFam = 0;
+	my $NumClust = 0;
+	my @cc = $g->connected_components();
+	
+	foreach my $ComList (@cc)
+	{
+	    $NumClust++;
+	    print "CLUST_$NumClust:\n";
+	    my $NumComp = 0;
+	    
+	    
+	    # TotComp is the total number of components
+	    my $TotComp = @$ComList;
+	    print "\tComp:\t$TotComp\n";
+	    
+	    if ($TotComp > 1)
+	    {
+		
+		$NumMult++;
+		
+		my $ClustFastOut = $FastDir.
+		    "Seqs_CLUST$NumClust.fasta";
+		
+		open (CLUSTFASTA, ">".$ClustFastOut) ||
+		    die "Could not open file for writing:\n$ClustFastOut\n";
+		
+		# $IndComp in the individual component of the graph
+		for my $IndComp (@$ComList)
+		{
+		    $NumComp++;
+		    
+		    #-----------------------------+
+		    # DETERMINE AVERAGE PATH      |
+		    # LENGTH FOR THE NODE         |
+		    #-----------------------------+
+		    # This is very slow
+		    #print "\ttDeterming average path length\n";
+		    #my $apl = $g->average_path_length($IndComp) || "NULL"; 
+		    #print "\t$IndComp\t$apl\n";
+		    #print STDOUT "\t$IndComp\t$apl\n";
+		    
+		    #-----------------------------+
+		    # PRINT NODE ATTRIBUTE OUT    | 
+		    #-----------------------------+
+		    #print REPNAME $OutName."=".$Name."\n";
+		    print CONCLUST $IndComp."=CLUST_".$NumClust."\n";
+		    
+		    #-----------------------------+
+		    # FETCH SEQ ID DATA           |
+		    #-----------------------------+
+		    my $FetchIDQry = "SELECT id FROM tblSeqData".
+			" WHERE rownum=$IndComp";
+		    my $IDsth = $dbh->prepare($FetchIDQry);
+		    $IDsth->execute() || 
+			print "\nERROR: Can not fetch ID for $IndComp\n";
+		    my @ID_row_ref = $IDsth->fetchrow_array;
+		    my $ID = $ID_row_ref[0] || "0";
+		    
+		    #-----------------------------+
+		    # FETCH SEQUENCE DATA         |
+		    #-----------------------------+
+		    my $FetchSeqQry = "SELECT seq FROM tblSeqData".
+			" WHERE rownum=$IndComp";
+		    my $Seqsth = $dbh->prepare($FetchSeqQry);
+		    $Seqsth->execute() || 
+			print "\nERROR: Can not fetch seq for $IndComp\n";
+		    my @Seq_row_ref = $Seqsth->fetchrow_array;
+		    my $SeqString = $Seq_row_ref[0] || "0";
+		    
+		    #-----------------------------+
+		    # WRITE TO FASTA FILE         |
+		    #-----------------------------+
+		    #print CLUSTFASTA ">$ID\n";
+		    # Changed 06/27/2007 to include the rown
+		    print CLUSTFASTA ">$IndComp|$ID\n";
+		    print CLUSTFASTA "$SeqString\n";
+		    
+		} # End of for each individual component
+		
+		# Close the FASTA output file
+		close CLUSTFASTA;
+		
+	    } else { 
+		
+		$NumSing++;
+		
+		for my $IndComp (@$ComList)
+		{
+		    #-----------------------------+
+		    # OPEN SINGLETON FASTA FILE   |
+		    #-----------------------------+
+		    my $SingFastOut = $FastDir.
+			"Singletons.fasta";
+		    
+		    # This will append data to an already existing file
+		    open (SINGFASTA, ">>".$SingFastOut) ||
+			die "Could not open file for writing:\n$SingFastOut\n";
+		    
+		    #-----------------------------+
+		    # FETCH SEQ ID DATA           |
+		    #-----------------------------+
+		    my $FetchIDQry = "SELECT id FROM tblSeqData".
+			" WHERE rownum=$IndComp";
+		    my $IDsth = $dbh->prepare($FetchIDQry);
+		    $IDsth->execute() || 
+			print "\nERROR: Can not fetch ID for $IndComp\n";
+		    my @ID_row_ref = $IDsth->fetchrow_array;
+		    my $ID = $ID_row_ref[0] || "0";
+		    
+		    #-----------------------------+
+		    # FETCH SEQUENCE DATA         |
+		    #-----------------------------+
+		    my $FetchSeqQry = "SELECT seq FROM tblSeqData".
+			" WHERE rownum=$IndComp";
+		    my $Seqsth = $dbh->prepare($FetchSeqQry);
+		    $Seqsth->execute() || 
+			print "\nERROR: Can not fetch seq for $IndComp\n";
+		    my @Seq_row_ref = $Seqsth->fetchrow_array;
+		    my $SeqString = $Seq_row_ref[0] || "0";
+		    
+		    #-----------------------------+
+		    # WRITE TO FASTA FILE         |
+		    #-----------------------------+
+		    #print SINGFASTA ">CLUST_$NumClust|$ID\n";
+		    # Changed 06/27/2007
+		    print SINGFASTA ">CLUST_$NumClust|$IndComp|$ID\n";
+		    print SINGFASTA "$SeqString\n";
+		    
+		} # END of for each indcomp
+		
+	    } # End of TotComp > 1
+	    
+	    # print "\n";
+	    #print "\tComp:\t$NumComp\n";
+	    
+	    # Print the number of components in each cluster to the 
+	    # summary output file
+	    print STDOUT "CLUST_$NumClust:\t$NumComp\n";
+	    
+	} # End of for IndComp
+	
+	
+	print STDERR "SING:\t$NumSing\n";
+	print STDERR "GRPS:\t$NumMult\n";
+	print STDOUT "SING:\t$NumSing\n";
+	print STDOUT "GRPS:\t$NumMult\n";
+	
+	
+	
+	
+    }
+    
+    
     #-----------------------------+
     # ADDTIONAL GRAPH INFO        |
     #-----------------------------+
-    #print "Determing average path length";
+    #print STDERR "Determing average path length";
     #my $apl = $g->average_path_length;
     #print STDERR "APL:\t$apl\n";
 
@@ -2198,160 +2418,9 @@ sub ParseTabBLAST2Graph {
     #$i = $g->connected_component_by_vertex($v)
     #\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-    #-----------------------------+
-    # WORK WITH THE CONNECTED     |
-    # COMPONENETS OF THE GRAPH    |
-    #-----------------------------+
-    # For a unidrected graph we can do the connected components
+ 
 
-    print "Determining the connected components\n";
-    my $NumFam = 0;
-    my $NumClust = 0;
-    my @cc = $g->connected_components();
-    
-    foreach my $ComList (@cc)
-    {
-	$NumClust++;
-	print "CLUST_$NumClust:\n";
-	my $NumComp = 0;
-	
-			
-	# TotComp is the total number of components
-	my $TotComp = @$ComList;
-	print "\tComp:\t$TotComp\n";
 
-	
-	if ($TotComp > 1)
-	{
-	    
-	    $NumMult++;
-
-	    my $ClustFastOut = $FastDir.
-		"Seqs_CLUST$NumClust.fasta";
-	    
-	    open (CLUSTFASTA, ">".$ClustFastOut) ||
-		die "Could not open file for writing:\n$ClustFastOut\n";
-
-	    # $IndComp in the individual component of the graph
-	    for my $IndComp (@$ComList)
-	    {
-		$NumComp++;
-		
-		#-----------------------------+
-		# DETERMINE AVERAGE PATH      |
-		# LENGTH FOR THE NODE         |
-		#-----------------------------+
-		# This is very slow
-		#print "\ttDeterming average path length\n";
-		#my $apl = $g->average_path_length($IndComp) || "NULL"; 
-		#print "\t$IndComp\t$apl\n";
-		#print STDOUT "\t$IndComp\t$apl\n";
-		
-		#-----------------------------+
-		# PRINT NODE ATTRIBUTE OUT    | 
-		#-----------------------------+
-		#print REPNAME $OutName."=".$Name."\n";
-		print CONCLUST $IndComp."=CLUST_".$NumClust."\n";
-
-		#-----------------------------+
-		# FETCH SEQ ID DATA           |
-		#-----------------------------+
-		my $FetchIDQry = "SELECT id FROM tblSeqData".
-		    " WHERE rownum=$IndComp";
-		my $IDsth = $dbh->prepare($FetchIDQry);
-		$IDsth->execute() || 
-		    print "\nERROR: Can not fetch ID for $IndComp\n";
-		my @ID_row_ref = $IDsth->fetchrow_array;
-		my $ID = $ID_row_ref[0] || "0";
-
-		#-----------------------------+
-		# FETCH SEQUENCE DATA         |
-		#-----------------------------+
-		my $FetchSeqQry = "SELECT seq FROM tblSeqData".
-		    " WHERE rownum=$IndComp";
-		my $Seqsth = $dbh->prepare($FetchSeqQry);
-		$Seqsth->execute() || 
-		    print "\nERROR: Can not fetch seq for $IndComp\n";
-		my @Seq_row_ref = $Seqsth->fetchrow_array;
-		my $SeqString = $Seq_row_ref[0] || "0";
-		
-		#-----------------------------+
-		# WRITE TO FASTA FILE         |
-		#-----------------------------+
-		#print CLUSTFASTA ">$ID\n";
-		# Changed 06/27/2007 to include the rown
-		print CLUSTFASTA ">$IndComp|$ID\n";
-		print CLUSTFASTA "$SeqString\n";
-		
-	    } # End of for each individual component
-	    
-	    # Close the FASTA output file
-	    close CLUSTFASTA;
-	    
-	} else { 
-			
-	    $NumSing++;
-
-	    for my $IndComp (@$ComList)
-	    {
-		#-----------------------------+
-		# OPEN SINGLETON FASTA FILE   |
-		#-----------------------------+
-		my $SingFastOut = $FastDir.
-		    "Singletons.fasta";
-		
-		# This will append data to an already existing file
-		open (SINGFASTA, ">>".$SingFastOut) ||
-		    die "Could not open file for writing:\n$SingFastOut\n";
-
-		#-----------------------------+
-		# FETCH SEQ ID DATA           |
-		#-----------------------------+
-		my $FetchIDQry = "SELECT id FROM tblSeqData".
-		" WHERE rownum=$IndComp";
-		my $IDsth = $dbh->prepare($FetchIDQry);
-		$IDsth->execute() || 
-		    print "\nERROR: Can not fetch ID for $IndComp\n";
-		my @ID_row_ref = $IDsth->fetchrow_array;
-		my $ID = $ID_row_ref[0] || "0";
-		
-		#-----------------------------+
-		# FETCH SEQUENCE DATA         |
-		#-----------------------------+
-		my $FetchSeqQry = "SELECT seq FROM tblSeqData".
-		    " WHERE rownum=$IndComp";
-		my $Seqsth = $dbh->prepare($FetchSeqQry);
-		$Seqsth->execute() || 
-		    print "\nERROR: Can not fetch seq for $IndComp\n";
-		my @Seq_row_ref = $Seqsth->fetchrow_array;
-		my $SeqString = $Seq_row_ref[0] || "0";
-		
-		#-----------------------------+
-		# WRITE TO FASTA FILE         |
-		#-----------------------------+
-		#print SINGFASTA ">CLUST_$NumClust|$ID\n";
-		# Changed 06/27/2007
-		print SINGFASTA ">CLUST_$NumClust|$IndComp|$ID\n";
-		print SINGFASTA "$SeqString\n";
-		
-	    } # END of for each indcomp
-	    
-	} # End of TotComp > 1
-	
-	# print "\n";
-	#print "\tComp:\t$NumComp\n";
-	
-	# Print the number of components in each cluster to the 
-	# summary output file
-	print STDOUT "CLUST_$NumClust:\t$NumComp\n";
-	
-    } # End of for IndComp
-
-    print "SING:\t$NumSing\n";
-    print "GRPS:\t$NumMult\n";
-    print STDOUT "SING:\t$NumSing\n";
-    print STDOUT "GRPS:\t$NumMult\n";
-    
 } # End of ParseTabBlast subfunction
 
 
@@ -4020,6 +4089,10 @@ VERSION: $Rev$
 #
 # 12/15/2008
 # - Switched ParseTabBLAST2Graph to the bioperl blast parser
+# - Adding connected components options for a directed graph
+#   this should work for both the strong connected components
+#   as well as the weakly connected components.
+# -
 #
 #-----------------------------------------------------------+
 # TODO                                                      |
