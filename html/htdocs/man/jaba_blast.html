@@ -95,7 +95,7 @@
 </p>
 <hr />
 <h1><a name="version">VERSION</a></h1>
-<p>This documentation refers to jaba_blast.pl version $Rev: 119 $</p>
+<p>This documentation refers to jaba_blast.pl version $Rev: 129 $</p>
 <p>
 </p>
 <hr />
@@ -106,6 +106,8 @@
 <pre>
     jaba_blast.pl -i AllByAll.blo -r RepBlast.blo -o OutDir -u UserName
                   -d dbName -f Network.sif</pre>
+<pre>
+    jaba_blast.pl --config config_run.cfg</pre>
 <p>
 </p>
 <h2><a name="required_arguments">Required Arguments</a></h2>
@@ -220,11 +222,31 @@ of variables that can be set with GraphViz that would be
 useful to set at the command lined. [Added 05/16/2007]</p>
 </dd>
 </li>
+<dt><strong><a name="item__2d_2ddo_2dseq">--do-seq</a></strong>
+
+<dd>
+<p>Fetch the sequence record from the database and generate the
+Seq.NA file. This file generates sequence string as node attributes.
+This allows for manual selection of sequence records from within
+the Cytoscape program.</p>
+</dd>
+</li>
 </dl>
 <p>
 </p>
 <h2><a name="database_options">Database Options</a></h2>
 <dl>
+<dt><strong><a name="item__2d_2dpassword">--password</a></strong>
+
+<dd>
+<p>The password for logging onto the database. Although it is possible to
+sepecify the password at the command line, this is not recommended.
+If a password is not specified at the command line, you will be prompted
+to provide the password in a more secure manner. You man also specify the
+password using a config file, or your can set the password using the
+RM_DB_PASS variable in the user environment.</p>
+</dd>
+</li>
 <dt><strong><a name="item__2da_tblallbyall">-a tblAllByAll</a></strong>
 
 <dd>
@@ -357,7 +379,7 @@ RM_CYTO_JAVA_PATH.</p>
 <dt><strong><a name="item__2d_2ddirection">--direction</a></strong>
 
 <dd>
-<p>Graph edge direction. This is currently only supported for tab delim blast:</p>
+<p>Graph edge direction.</p>
 </dd>
 <dd>
 <p>-d 0 = undirected (i &lt; j)</p>
@@ -380,23 +402,46 @@ RM_CYTO_JAVA_PATH.</p>
        Reciprocal hits drawn as two edges.</p>
 </dd>
 </li>
+<dt><strong><a name="item__2d_2dgraph_2dstat">--graph-stat</a></strong>
+
+<dd>
+<p>The path to a file to hold statistics describing the graph. 
+Calculating these stats are processor and memory intensive, so this option
+should only be used for small to moderate sized graphs. For larger graphs
+you should consider using R. These are very basic graph stats and include:</p>
+</dd>
+<dd>
+<p>- Number of nodes and edges</p>
+</dd>
+<dd>
+<p>- Clustering statistics</p>
+</dd>
+<dd>
+<p>- Average path length</p>
+</dd>
+<dd>
+<p>- Graph Diameter</p>
+</dd>
+<dd>
+<p>- Average Path length for each node</p>
+</dd>
+<dd>
+<p>- Out degree and in degree for each node</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2ddo_2dstrong">--do-strong</a></strong>
+
+<dd>
+<p>For connected components cluster, use the strongly connected components
+algorithm The default algorithm for directed graphs is weakly connected
+components. The only option for undirected graphs is connected components.</p>
+</dd>
+</li>
 <dt><strong><a name="item__2dn_graph_node_attributes">-n Graph node attributes</a></strong>
 
 <dd>
 <p>The graph node attributes to use for node classification.
 Not currently implemented.</p>
-</dd>
-</li>
-<dt><strong><a name="item__2dg_graph_algorithm">-g Graph algorithm</a></strong>
-
-<dd>
-<p>Not currently implemented.</p>
-</dd>
-</li>
-<dt><strong><a name="item__2dk_k_best_blast_hits_used">-k K best blast hits used</a></strong>
-
-<dd>
-<p>Not currently implemented.</p>
 </dd>
 </li>
 <dt><strong><a name="item__2dw_0">-w 0</a></strong>
@@ -405,7 +450,7 @@ Not currently implemented.</p>
 <p>Graph edge weight option:</p>
 </dd>
 <dd>
-<p>-w 0 unweighted</p>
+<p>-w 0 unweighted [default]</p>
 </dd>
 </li>
 </dl>
@@ -473,7 +518,7 @@ when the process is finished.</p>
                -o net_out -f net_file --cyto-launch</pre>
 <p>The program makes an assumption about where the cytoscape jar file
 is located, you can specify the location of this file using the
-'cyto-path' option.</p>
+'--cyto-path' option:</p>
 <pre>
  jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
                -o net_out -f net_file --cyto-launch
@@ -523,6 +568,8 @@ equivalents in brackets are:</p>
 
 <li><strong><a name="item_dbname__5b_2d_2ddatabase_5d">DbName [--database]</a></strong>
 
+<li><strong><a name="item_dbpass__5b_2d_2dpassword_5d">DbPass [--password]</a></strong>
+
 <li><strong><a name="item_netdir__5b_2d_2ddirection_5d">NetDir [--direction]</a></strong>
 
 <li><strong><a name="item_blast_allbyall__5b_2d_2dinfile_5d">BLAST_AllByAll [--infile]</a></strong>
@@ -561,10 +608,10 @@ An example configuration file is as follows:</p>
  ABATable             tblAllByAll
  RepeatTable          tblRepeatID
  # INPUT FILES
- BLAST_AllByAll       /home/jestill/projects/SanMiguel/SanMiguel_700/SanMiguel700_SanMiguel700.blo
- BLAST_RepDB          /home/jestill/projects/SanMiguel/SanMiguel_700/SanMiguel700_Mips_e10.blo
+ BLAST_AllByAll       MySeqs_MySeqs.bln
+ BLAST_RepDB          MySeqs_Mips_e10.bln
  # OUTPUT DIRECTORY
- NetDir               /home/jestill/projects/SanMiguel/SanMiguel_700/SanMigTest/
+ NetDir               MySeqs_Dir
  # ALL BY ALL BLAST VARIABLES
  A_MinQryLen          50
  A_MinScore           150
@@ -595,12 +642,30 @@ An example configuration file is as follows:</p>
 <p>The amount of memory to allocate to cytoscape.</p>
 </li>
 </ul>
-<p>An example of setting these options in the bash shell is:</p>
+<p>Additionally, you may set some database options in your user environment</p>
+<dl>
+<dt><strong><a name="item_rm_db_user">RM_DB_USER</a></strong>
+
+<dd>
+<p>The user name for logging into the MySQL database.</p>
+</dd>
+</li>
+<dt><strong><a name="item_rm_db_pass">RM_DB_PASS</a></strong>
+
+<dd>
+<p>The password for logging into the MySQL database.</p>
+</dd>
+</li>
+</dl>
+<p>An example of setting these variables for the user 'cartman'
+in the bash shell is:</p>
 <pre>
  export RM_CYTO_PATH='/home/username/apps/Cytoscape-v2.3/cytoscape.jar'
  export RM_CYTO_MEM='2048M';
  export RM_CYTO_LIB='/home/username/apps/Cytoscape-v2.3/plugins'
- export RM_JAVA_PATH='java'</pre>
+ export RM_JAVA_PATH='java'
+ export RM_DB_USER='cartman'
+ export RM_DB_PASS='potpie'</pre>
 <p>
 </p>
 <hr />
@@ -755,7 +820,7 @@ WARRANTY. USE AT YOUR OWN RISK.</p>
 <p>A manuscript is in preparation describing this software. Currently you 
 should cite the repminer website:</p>
 <pre>
-  JC Estill and JL Bennetzen. 2008. RepMiner. 
+  JC Estill, RS Baucom and JL Bennetzen. 2008. RepMiner. 
   <a href="http://repminer.sourceforge.net">http://repminer.sourceforge.net</a></pre>
 <p>
 </p>
@@ -763,7 +828,7 @@ should cite the repminer website:</p>
 <h1><a name="history">HISTORY</a></h1>
 <p>STARTED: 06/14/2006</p>
 <p>UPDATED: 12/11/2008</p>
-<p>VERSION: $Rev: 119 $</p>
+<p>VERSION: $Rev: 129 $</p>
 <table border="0" width="100%" cellspacing="0" cellpadding="3">
 <tr><td class="block" valign="middle">
 <big><strong><span class="block">&nbsp;jaba_blast.pl</span></strong></big>
