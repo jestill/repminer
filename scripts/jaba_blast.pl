@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/Usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
 # jaba_blast.pl - Parse All by All blast results            |
@@ -1004,15 +1004,13 @@ sub LoadTabRepClassNew {
 	    $CurQry = $QryId;
 
 	    # Only use the top hit 
-	    unless ($CurQry =~ $PreQry)
-	    {
+	    unless ($CurQry =~ $PreQry) {
 		#-----------------------------+
 		# PARSE INFORMATION DEPENDENT |
 		# ON THE REPEAT DATABASE USED | 
 		#-----------------------------+ 
 		if ($BlastDB =~ 'TREP_8' ||
-		    $BlastDB =~ 'TREP_9')
-		{
+		    $BlastDB =~ 'TREP_9') {
 		    $HitCount++;
 		    
 		    my $HitId = $BlastHit->accession()  || "UnkAcc";
@@ -1033,8 +1031,7 @@ sub LoadTabRepClassNew {
 		#-----------------------------+
 		# REPBASE PLANTS              |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'RB_pln')
-		{
+		elsif ($BlastDB =~ 'RB_pln') {
 		    
 		    $HitCount++;
 		    $Class = "UNK";
@@ -1055,8 +1052,7 @@ sub LoadTabRepClassNew {
 		# foramt.                     |
 		#-----------------------------+
 		elsif ($BlastDB =~ 'mips_REdat_4_3' || 
-		       $BlastDB =~ 'mips')
-		{
+		       $BlastDB =~ 'mips') {
 		    
 		    $HitCount++;
 		    $Class = "UNK";
@@ -1070,18 +1066,14 @@ sub LoadTabRepClassNew {
 		    $RepClass = &GetRBClass($CatSearch); 
 		    
 		    # Show what class is currently being read
-		    if (! $quiet)
-		    {
-			print "MIPS Name:\t".$Name."\n";
-		    }
+		    print "MIPS Name:\t".$Name."\n" if $verbose;
 		    
 		}
 		
 		#-----------------------------+
 		# TIGR ORYZA REPEAT DATABASE  |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'os_rep')
-		{
+		elsif ($BlastDB =~ 'os_rep') {
 		    $HitCount++;
 		    $Name = $BlastHit->name();
 		    $RepClass = &GetTIGRClass($Name);
@@ -1091,8 +1083,7 @@ sub LoadTabRepClassNew {
 		#-----------------------------+
 		# TIGR BRASSICACEAE REPEATS   |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'TIGRbras')
-		{
+		elsif ($BlastDB =~ 'TIGRbras') {
 		    $HitCount++;
 		    $Name = $BlastHit->name();
 		    $RepClass = &GetTIGRClass($Name);
@@ -1101,8 +1092,7 @@ sub LoadTabRepClassNew {
 		#-----------------------------+
 		# TIGR FABACEAE REPEATS       |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'TIGRfab')
-		{
+		elsif ($BlastDB =~ 'TIGRfab') {
 		    $HitCount++;
 		    $Name = $BlastHit->name();
 		    $RepClass = &GetTIGRClass($Name);
@@ -1111,8 +1101,7 @@ sub LoadTabRepClassNew {
 		#-----------------------------+
 		# TIGR SOLANACEAE REPEATS     |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'TIGRsol')
-		{
+		elsif ($BlastDB =~ 'TIGRsol') {
 		    $HitCount++;
 		    $Name = $BlastHit->name();
 		    $RepClass = &GetTIGRClass($Name);
@@ -1121,8 +1110,7 @@ sub LoadTabRepClassNew {
 		#-----------------------------+
 		# WESSLER LAB REPEAT DATABASE |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'Wessler')
-		{
+		elsif ($BlastDB =~ 'Wessler') {
 		    $HitCount++;
 		    my $WesName = $BlastHit->name();
 		    my @SpName = (split /\#/, $WesName);
@@ -1149,8 +1137,7 @@ sub LoadTabRepClassNew {
 		#-----------------------------+
 		# SAN MIGUEL REPEAT DATABASE  |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'SanMiguel')
-		{
+		elsif ($BlastDB =~ 'SanMiguel') {
 		    $Name = $SubId;
 		    ($RepClass,$other) = split(/_/, $Name);
 		}
@@ -1159,8 +1146,7 @@ sub LoadTabRepClassNew {
 		# TIGR ZEA MAYS REPEAT        |
 		# DATABASE                    |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'zm_rep')
-		{
+		elsif ($BlastDB =~ 'zm_rep') {
 		    $HitCount++;
 		    $Name = $BlastHit->name();
 		    $RepClass = &GetTIGRClass($Name); 
@@ -1171,17 +1157,19 @@ sub LoadTabRepClassNew {
 		# TIGR GRAMINEAE REPEAT       |
 		# DATABASE                    |
 		#-----------------------------+
-		elsif ($BlastDB =~ 'gram_rep')
-		{
+		elsif ($BlastDB =~ 'gram_rep') {
 		    $HitCount++;
 		    $Name = $BlastHit->name();
 		    #$RepClass = "UNK-ZeaRepeat";
 		    $RepClass = &GetTIGRClass($Name);
 		    
-		} else {
-		    #-----------------------------+
-		    # DATABASE NOT RECOGNIZED     |
-		    #-----------------------------+
+		} 
+
+		#-----------------------------+
+		# DATABASE NOT RECOGNIZED     |
+		#-----------------------------+
+		else {
+
 		    #print "ERROR. The repeat database $BlastDB is not".
 		    #	" recognized by RepMiner.\n";
 		
@@ -2339,7 +2327,7 @@ sub ParseTabBLAST2Graph {
 	#-----------------------------+
 	# CLUSTERING STATS            |
 	#-----------------------------+
-	print GSTAT "# CLUSTERING STATS\n";
+ 	print GSTAT "# CLUSTERING STATS\n";
 	print GSTAT "ALG:\t$clust_alg\t\n";
 	print GSTAT "SING:\t$NumSing\n";
 	print GSTAT "GRPS:\t$NumMult\n";
@@ -3381,7 +3369,7 @@ RM_CYTO_JAVA_PATH.
 
 =item --direction
 
-Graph edge direction. This is currently only supported for tab delim blast:
+Graph edge direction.
 
 -d 0 = undirected (i < j)
 
@@ -3397,24 +3385,41 @@ Graph edge direction. This is currently only supported for tab delim blast:
 -d 5 = directed (all i,j)
        Reciprocal hits drawn as two edges.
 
+=item --graph-stat
+
+The path to a file to hold statistics describing the graph. 
+Calculating these stats are processor and memory intensive, so this option
+should only be used for small to moderate sized graphs. For larger graphs
+you should consider using R. These are very basic graph stats and include:
+
+- Number of nodes and edges
+
+- Clustering statistics
+
+- Average path length
+
+- Graph Diameter
+
+- Average Path length for each node
+
+- Out degree and in degree for each node
+
+=item --do-strong
+
+For connected components cluster, use the strongly connected components
+algorithm The default algorithm for directed graphs is weakly connected
+components. The only option for undirected graphs is connected components.
+
 =item -n Graph node attributes
 
 The graph node attributes to use for node classification.
-Not currently implemented.
-
-=item -g Graph algorithm
-
-Not currently implemented.
-
-=item -k K best blast hits used
-
 Not currently implemented.
 
 =item -w 0
 
 Graph edge weight option:
 
--w 0 unweighted 
+-w 0 unweighted [default]
 
 =back
 
@@ -4092,7 +4097,6 @@ VERSION: $Rev$
 # - Adding connected components options for a directed graph
 #   this should work for both the strong connected components
 #   as well as the weakly connected components.
-# ===
 # - Added do_strong [--do-strong] option to select the 
 #   clustering by strongly connected components for the 
 #   directed graph, other clustering is by the weakly
