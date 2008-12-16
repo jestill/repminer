@@ -20,21 +20,25 @@
 #                                                           |
 #-----------------------------------------------------------+
 # TO DO:  
-# - Add graph statistics using the Graph perl module
+# - working with:
+#   jaba_blast.pl --config test_confg_3.jcfg --verbose
+#                 --direction 2
+#                 --cyto-launch -m 0
+# - Do classification with generic search::IO
+# - Temp load vals of best hit to an array that can be
+#   used to determine best hit from a large suite of database
+#   searches. This would be useful for long style blast output
+# - Also make not that users can use the -b 5 or -b 1 in ncbi
+#   blast to reduce the number of hits that are returned for
+#   hits against repeat databases.
+# - Send the LoadRepClass subfunction the path to the
+#   classification blast result as well as the 
+# - Add option to prepend names with the param root
 # - Write sim file
-# -The problem with the current implementation is the
-#  the sequence query is looking for id instead of rownum
-#  from the sequence query, this is a problem with teh
-#  fasta2db.pl program.
-# - Deprecat parseTabAllByAll ... this is still doing 
-#   and HSP by HSP parse, this should only be
-#   use if the HSP per HSP scores are desired
-# - Switch to blasttable from bioperl to get the true
-#
-# [ ] Add ability to use identity or bit score for the
-#     parsing of the BLAST.
-#     This will go to the function ParseTabBlast
-#
+# - Add ability to use identity or bit score for the
+#   parsing of the BLAST.
+# - RepBlast for classification to accept both long
+#   blast and tab blast format
 
 package REPMINER;
 
@@ -65,8 +69,8 @@ my ($VERSION) = q$Rev$ =~ /(\d+)/;
 #-----------------------------+
 my $Config;
 my $do_launch_cytoscape;
-my $RunGraphviz;
 my $CreateMatrix = 0;
+my $debug = 0;                 # Can change to run in debug mode
 
 #-----------------------------+
 # GENERAL USE PROGRAM VARS    |
@@ -168,58 +172,61 @@ my $do_hsp = 0;    #
 my $do_seq = 0;    # Try to fetch the sequence record from the db
 my $do_sim = 0;    # Generate the similarity matrix
 my $do_strong =0;  # Cluster directed graph by strongly connected components
-my $graph_stat;  # Path for file for graph statistics
+my $graph_stat;    # Path for file for graph statistics
+my $do_art=0;      # Annotate the cut vertices, articulation points
+                   # Writes to stats file and a NA file
 
-my $ok = GetOptions(# REQUIRED OPTIONS
-		    "i|infile=s"    => \$in_aba_blast,
-		    "o|outdir=s"    => \$NetDir,
-		    # ADDITIONAL GENERAL OPTIONS
-		    "Z|config=s"    => \$Config,
-		    "param=s"       => \$param_name,
-		    "do-hsp"        => \$do_hsp,
-		    "do-seq"        => \$do_seq,
-		    "do-strong"     => \$do_strong,
-		    "graph-stat=s"  => \$graph_stat,
+my $ok = GetOptions(# REQUIRED VARIABLES
+		    "i|infile=s"     => \$in_aba_blast,
+		    "o|outdir=s"     => \$NetDir,
+		    # GENERAL OPTIONS
+		    "Z|config=s"     => \$Config,
+		    "param=s"        => \$param_name,
+		    "do-hsp"         => \$do_hsp,
+		    "do-seq"         => \$do_seq,
+		    "do-strong"      => \$do_strong,
+		    "do-art"         => \$do_art,
+		    "graph-stat=s"   => \$graph_stat,
 		    # CYTOSCAPE OPTIONS
-		    "cyto-launch"   => \$do_launch_cytoscape,
-		    "cyto-path=s"   => \$cytoscape_path,
-		    "cyto-lib=s"    => \$cytoscape_lib,
-		    "cyto-mem=s"    => \$cytoscape_mem,
-		    "java-path=s"   => \$java_path,
+		    "cyto-launch"    => \$do_launch_cytoscape,
+		    "cyto-path=s"    => \$cytoscape_path,
+		    "cyto-lib=s"     => \$cytoscape_lib,
+		    "cyto-mem=s"     => \$cytoscape_mem,
+		    "java-path=s"    => \$java_path,
 		    # DATABASE VARIABLES
-		    "d|database=s"  => \$DbName,
-		    "u|username=s"  => \$DbUserName,
-		    "password=s"    => \$DbUserPassword,
+		    "d|database=s"   => \$DbName,
+		    "u|username=s"   => \$DbUserName,
+		    "password=s"     => \$DbUserPassword,
 		    # General variables
-		    "f=s"           => \$NetName,
+		    "f=s"            => \$NetName,
 		    # GRAPH OPTIONS
-		    "direction=s"   => \$GraphDir, # Graph direction
+		    "direction=s"    => \$GraphDir, # Graph direction
 		    # ALL BY ALL BLAST OPTIONS
-		    "m=s"           => \$BlastFormat,
-		    "l=s"           => \$A_MinQryLen,
-		    "s=s"           => \$A_MinScore,
-		    "e=s"           => \$A_MaxE,
-		    # CATEGORIZATION BLAST VARS
-		    "r=s"           => \$RepBLAST,
-		    "cat-len=s"     => \$MinQryLen,
-		    "cat-score=s"   => \$MinScore,
-		    "cat-maxe=s"    => \$MaxE,
-		    "N=s"           => \$RepBlastDb,
+		    "m|format=s"     => \$BlastFormat,
+		    "l|len=s"        => \$A_MinQryLen,
+		    "s|score=s"      => \$A_MinScore,
+		    "e|maxe=s"       => \$A_MaxE,
+		    # CLASSIFICATION BLAST VARS
+		    "class-blast=s"  => \$RepBLAST,
+		    "class-len=s"    => \$MinQryLen,
+		    "class-score=s"  => \$MinScore,
+		    "class-maxe=s"   => \$MaxE,
+		    "class-db=s"     => \$RepBlastDb,
                     # DATABASE OPTIONS
-		    "a=s"           => \$tblAllByAll,
-		    "c=s"           => \$tblQryCat,
+		    "a=s"            => \$tblAllByAll,
+		    "c=s"            => \$tblQryCat,
 		    # MATRIX OPTIONS
-		    "create-matrix" => \$CreateMatrix,
-		    "x|x-scale=i"   => \$xsc,
-		    "y|y-scale=i"   => \$ysc,
-                    "p|pix-size=i"  => \$pxs,
+		    "create-matrix"  => \$CreateMatrix,
+		    "x|x-scale=i"    => \$xsc,
+		    "y|y-scale=i"    => \$ysc,
+                    "p|pix-size=i"   => \$pxs,
                     # ADDITIONAL INFORMATION
-                    "q|quiet"       => \$quiet,
-                    "verbose"       => \$verbose,
-                    "usage"         => \$show_usage,
-                    "version"       => \$show_version,
-                    "man"           => \$show_man,
-                    "h|help"        => \$show_help,);
+                    "q|quiet"        => \$quiet,
+                    "verbose"        => \$verbose,
+                    "usage"          => \$show_usage,
+                    "version"        => \$show_version,
+                    "man"            => \$show_man,
+                    "h|help"         => \$show_help,);
 
 #-----------------------------+
 # SHOW REQUESTED HELP         |
@@ -256,6 +263,7 @@ if ($show_version) {
 
 if ($Config) {
 
+    
     # DATABASE VARIABLES
     $DbUserName = &ParseConfigFile($Config, uc("DbUserName") );
     $DbName = &ParseConfigFile($Config, uc("DbName") );
@@ -396,7 +404,6 @@ my $HSPFI = $NetDir."HSPFI.EA";
 my $HSPLen = $NetDir."HSPLen.EA";
 
 # NETWORK SIF FILE
-# For BLAST HITS
 open (SIFOUT, ">$SifOut") ||   #Network *.SIF file
     die "Can not open $SifOut\n"; 
 
@@ -467,19 +474,14 @@ print STDERR "Initializing database.\n" if $verbose;
 #-----------------------------+
 if ($BlastFormat == '8') {
 
-    # Parse AxA to SIF Files
-# TEMP COMMENT OUT 12/15/2008
-#    &ParseTabBLAST ($in_aba_blast);
-
-    # Parse AxA to Graph Object and Classify
-    # This generates the list of connected components
-    &ParseTabBLAST2Graph ($in_aba_blast);
+    #&ParseBLAST2Graph ($in_aba_blast);
+    &ParseBLAST2Graph ($in_aba_blast, 'blasttable');
 
 }
 elsif ($BlastFormat == '0') {
     # Old version of the parse program
     #&LoadAllByAll;
-
+    &ParseBLAST2Graph ($in_aba_blast, 'blast');
 }
 
 #-----------------------------+
@@ -491,14 +493,16 @@ elsif ($BlastFormat == '0') {
 # not run the load rep class subfunction.
 # If a RepBlast path was passed at the command line 
 if ($RepBLAST) {
-    #&LoadRepClass;
+
+    &LoadRepClass;
     # For tab delimited BLAST of repeat database
 
     #
     #&LoadTabRepClass($RepBlastDb);
 
-    #                               $RepBlastDb
-    &LoadTabRepClassNew( $RepBLAST, $RepBlastDb);
+    # The following was the working copy
+    # but going to verger to the LoadRepClass
+    #&LoadTabRepClassNew( $RepBLAST, $RepBlastDb);
 
 }
 
@@ -706,7 +710,6 @@ sub DbSetup {
 
 sub LoadRepClass {
 
-    print "Defining repeat classes.\n";
 
     #-----------------------------+
     # LOAD THE REPEAT             |
@@ -723,9 +726,14 @@ sub LoadRepClass {
 					  '-score' => $MinScore ) ||
     die "Could not open BLAST input file:\n$RepBLAST.\n";
 
-    while ($BlastResult = $BlastReport->next_result())
-    {
+    while ($BlastResult = $BlastReport->next_result()) {
 	$QryName = $BlastResult->query_name;
+
+	# The following should first see if the blast name
+	# was passed at the command line, this will send 0 as the
+	# blas db variable to the subfunction
+	# Searching this for each record allows for concatenated
+	# blast reports that report results for multiple databases
 	$BlastDB = $BlastResult->database_name;
 
 	#print "Rep Search".$QryName.":".$BlastDB."\n";
@@ -733,15 +741,13 @@ sub LoadRepClass {
 	my $NumHits = $BlastResult->num_hits;
 	my $HitCount = "0";
 
-	while ( $BlastHit = $BlastResult->next_hit())
-	{
+	while ( $BlastHit = $BlastResult->next_hit()) {
 
 	    #-----------------------------+
 	    # TREP REPEAT DATABASE        |
 	    #-----------------------------+
 	    if ($BlastDB =~ 'TREP_8' ||
-		$BlastDB =~ 'TREP_9')
-	    {
+		$BlastDB =~ 'TREP_9') {
 		$HitCount++;
 
 		my $HitId = $BlastHit->accession()  || "UnkAcc";
@@ -762,8 +768,7 @@ sub LoadRepClass {
 	    #-----------------------------+
 	    # REPBASE PLANTS              |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'RB_pln')
-	    {
+	    elsif ($BlastDB =~ 'RB_pln') {
 
 		$HitCount++;
 		$Class = "UNK";
@@ -783,8 +788,7 @@ sub LoadRepClass {
 	    # This follows the RepBASE    |
 	    # foramt.                     |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'mips_REdat_4_3')
-	    {
+	    elsif ($BlastDB =~ 'mips_REdat_4_3') {
 
 		$HitCount++;
 		$Class = "UNK";
@@ -808,8 +812,7 @@ sub LoadRepClass {
 	    #-----------------------------+
 	    # TIGR ORYZA REPEAT DATABASE  |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'os_rep')
-	    {
+	    elsif ($BlastDB =~ 'os_rep') {
 		$HitCount++;
 		$Name = $BlastHit->name();
 		$RepClass = &GetTIGRClass($Name);
@@ -819,8 +822,7 @@ sub LoadRepClass {
 	    #-----------------------------+
 	    # TIGR BRASSICACEAE REPEATS   |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'TIGRbras')
-	    {
+	    elsif ($BlastDB =~ 'TIGRbras') {
 		$HitCount++;
 		$Name = $BlastHit->name();
 		$RepClass = &GetTIGRClass($Name);
@@ -829,8 +831,7 @@ sub LoadRepClass {
 	    #-----------------------------+
 	    # TIGR FABACEAE REPEATS       |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'TIGRfab')
-	    {
+	    elsif ($BlastDB =~ 'TIGRfab') {
 		$HitCount++;
 		$Name = $BlastHit->name();
 		$RepClass = &GetTIGRClass($Name);
@@ -839,8 +840,7 @@ sub LoadRepClass {
 	    #-----------------------------+
 	    # TIGR SOLANACEAE REPEATS     |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'TIGRsol')
-	    {
+	    elsif ($BlastDB =~ 'TIGRsol') {
 		$HitCount++;
 		$Name = $BlastHit->name();
 		$RepClass = &GetTIGRClass($Name);
@@ -849,8 +849,7 @@ sub LoadRepClass {
 	    #-----------------------------+
 	    # WESSLER LAB REPEAT DATABASE |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'Wessler')
-	    {
+	    elsif ($BlastDB =~ 'Wessler') {
 		$HitCount++;
 		my $WesName = $BlastHit->name();
 		my @SpName = (split /\#/, $WesName);
@@ -861,25 +860,12 @@ sub LoadRepClass {
 		my $Desc = $BlastHit->description();
 		$RepClass = &GetWesClass($WesClass);
 
-		# DEBUG PRINT
-		# Not printed on 'quiet' runs
-		if (! $quiet)
-		{
-		    if ($RepClass  =~ "UNK")
-		    {
-			print $Name."\n";
-			print "\t".$WesClass."\n";
-			print "\t".$RepClass."\n";
-		    }
-		}
-
 	    }
 
 	    #-----------------------------+
 	    # SAN MIGUEL REPEAT DATABASE  |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'SanMiguel')
-	    {
+	    elsif ($BlastDB =~ 'SanMiguel') {
 		$HitCount++;
 		$Name = $BlastHit->name();
 		$RepClass = "UNK-SanMiguel";
@@ -889,8 +875,7 @@ sub LoadRepClass {
 	    # TIGR ZEA MAYS REPEAT        |
 	    # DATABASE                    |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'zm_rep')
-	    {
+	    elsif ($BlastDB =~ 'zm_rep') {
 		$HitCount++;
 		$Name = $BlastHit->name();
 		$RepClass = &GetTIGRClass($Name); 
@@ -900,28 +885,28 @@ sub LoadRepClass {
 	    # TIGR GRAMINEAE REPEAT       |
 	    # DATABASE                    |
 	    #-----------------------------+
-	    elsif ($BlastDB =~ 'gram_rep')
-	    {
+	    elsif ($BlastDB =~ 'gram_rep') {
 		$HitCount++;
 		$Name = $BlastHit->name();
 		#$RepClass = "UNK-ZeaRepeat";
 		$RepClass = &GetTIGRClass($Name);
-		
-	    } else {
-		#-----------------------------+
-		# DATABASE NOT RECOGNIZED     |
-		#-----------------------------+
-		print "ERROR. The repeat database $BlastDB is not".
-		    " recognized by RepMiner.\n";
+	    } 
+
+
+	    #-----------------------------+
+	    # DATABASE NOT RECOGNIZED     |
+	    #-----------------------------+
+	    else {
+		print STDERR "ERROR. The repeat database $BlastDB is not".
+		    " recognized by RepMiner.\n" if $verbose;
 	    }
 
 
 	    # CURRENTLY WILL ONLY LOAD THE BEST HIT INTO
 	    # THE DATABASE FOR A NICE QUICK AND DIRTY
 	    # ATTEMPT TO GET THIS TO WORK
-	    if ($HitCount == "1")
-	    {
-
+	    # This is a nearest neighbor classification
+	    if ($HitCount == "1") {
 
 		# Can do the HSP parse here if only wanted for the 
 		# first hit.
@@ -944,15 +929,19 @@ sub LoadRepClass {
 		my $OutName = $tmpqry[0]; 
 
 		# TRY TO TRACK DOWN AN ERROR
-		
-		print "SQL\t\t$LoadRec\n";
-		print "\t\t".$OutName."\n";
-		print "\t\t".$RepClass."\n";
-		print "\t\t".$Name."\n";
+		if ($debug) {
+		    print "SQL\t\t$LoadRec\n";
+		    print "\t\t".$OutName."\n";
+		    print "\t\t".$RepClass."\n";
+		    print "\t\t".$Name."\n";
+		}
 
 		# It appears that cycoscape shows the last one that 
 		# was added to the list, and ignores earlier 
 		# classifications
+		# This will prevent multiple database BLAST 
+		# from turning up with the best blast hit
+
 		print REPOUT $OutName."=".$RepClass."\n";
 		print REPNAME $OutName."=".$Name."\n";
 
@@ -966,789 +955,13 @@ sub LoadRepClass {
 
 # Begin to work with tab delimited -m8 or -m9 format output
 
-sub LoadTabRepClassNew {
-    # Only the first hit from the BLAST is used here
-    # Since the variables are not the same as the 
-    # SeqIO objects, this code will need to be modified
-    # for the different databases.
-
-    # Parsing the BLAST file using native PERL functions for
-    # working with text files is much faster then using the
-    # BioPERL SeqIO
-    my $TabBlastFile = $_[0];
-    my $BlastDB = $_[1];
-    my $PreQry = "";              # Qry ID of previous hit 
-    my $CurQry = "";              # Qry ID of current hit
-    my $other; # Var to extra information with the name
-    my $RepClass;
-    my $Name;
-    my $HitCount = 0;
-
-    open (BLASTIN, "<".$TabBlastFile) ||
-	die "Can not open BLAST file.$TabBlastFile.\n";
-
-    while (<BLASTIN>)
-    {
-	chomp;                 # Remove newline character
-	unless (m/^\#.*/)       # Ignore comment lines, works with -m 9 output
-	{
-	    
-	    my ($QryId, $SubId, $PID, $Len, 
-		$MisMatch, $GapOpen, 
-		$QStart,$QEnd, $SStart, $SEnd,
-		$EVal, $BitScore) = split(/\t/);
-
-	    # Trim leading white space from Bit score
-	    $BitScore =~ s/^\s*(.*?)\s*$/$1/;
-
-	    $CurQry = $QryId;
-
-	    # Only use the top hit 
-	    unless ($CurQry =~ $PreQry) {
-		#-----------------------------+
-		# PARSE INFORMATION DEPENDENT |
-		# ON THE REPEAT DATABASE USED | 
-		#-----------------------------+ 
-		if ($BlastDB =~ 'TREP_8' ||
-		    $BlastDB =~ 'TREP_9') {
-		    $HitCount++;
-		    
-		    my $HitId = $BlastHit->accession()  || "UnkAcc";
-		    
-		    $RepClass = &GetTREPClass($HitId);
-		    $Name = &GetTREPName($HitId);
-		    
-		    # Don't show output on quiet runs
-		    if (! $quiet)
-		    {
-			print $QryName."\n";
-			print "\t".$HitId.":".$Name."\n";
-			print "\t".$RepClass."\n";
-		    }
-		    
-		}
-		
-		#-----------------------------+
-		# REPBASE PLANTS              |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'RB_pln') {
-		    
-		    $HitCount++;
-		    $Class = "UNK";
-		    $Subclass = "UNK";
-		    $Superfamily = "UNK";
-		    $Name = $BlastHit->name();
-		    
-		    my @SpName = (split /\#/, $Name);
-		    my $CatSearch = trim($SpName[1] || "NONE");
-		    
-		    $RepClass = &GetRBClass($CatSearch); 
-		    
-		}
-		
-		#-----------------------------+
-		# MIPS DATABASE               |
-		# This follows the RepBASE    |
-		# foramt.                     |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'mips_REdat_4_3' || 
-		       $BlastDB =~ 'mips') {
-		    
-		    $HitCount++;
-		    $Class = "UNK";
-		    $Subclass = "UNK";
-		    $Superfamily = "UNK";
-		    $Name = $BlastHit->name();
-		    
-		    my @SpName = (split /\#/, $Name);
-		    my $CatSearch = trim($SpName[1] || "NONE");
-		
-		    $RepClass = &GetRBClass($CatSearch); 
-		    
-		    # Show what class is currently being read
-		    print "MIPS Name:\t".$Name."\n" if $verbose;
-		    
-		}
-		
-		#-----------------------------+
-		# TIGR ORYZA REPEAT DATABASE  |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'os_rep') {
-		    $HitCount++;
-		    $Name = $BlastHit->name();
-		    $RepClass = &GetTIGRClass($Name);
-		}
-		
-		
-		#-----------------------------+
-		# TIGR BRASSICACEAE REPEATS   |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'TIGRbras') {
-		    $HitCount++;
-		    $Name = $BlastHit->name();
-		    $RepClass = &GetTIGRClass($Name);
-		}
-		
-		#-----------------------------+
-		# TIGR FABACEAE REPEATS       |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'TIGRfab') {
-		    $HitCount++;
-		    $Name = $BlastHit->name();
-		    $RepClass = &GetTIGRClass($Name);
-		}
-		
-		#-----------------------------+
-		# TIGR SOLANACEAE REPEATS     |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'TIGRsol') {
-		    $HitCount++;
-		    $Name = $BlastHit->name();
-		    $RepClass = &GetTIGRClass($Name);
-		}
-		
-		#-----------------------------+
-		# WESSLER LAB REPEAT DATABASE |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'Wessler') {
-		    $HitCount++;
-		    my $WesName = $BlastHit->name();
-		    my @SpName = (split /\#/, $WesName);
-		    $Name = $SpName[0];
-		    
-		    my $WesClass = $SpName[1];
-		    
-		    my $Desc = $BlastHit->description();
-		    $RepClass = &GetWesClass($WesClass);
-		    
-		    # DEBUG PRINT
-		    # Not printed on 'quiet' runs
-		    if (! $quiet)
-		    {
-			if ($RepClass  =~ "UNK")
-			{
-			    print $Name."\n";
-			    print "\t".$WesClass."\n";
-			    print "\t".$RepClass."\n";
-			}
-		    } # End of not quiet
-		}
-		
-		#-----------------------------+
-		# SAN MIGUEL REPEAT DATABASE  |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'SanMiguel') {
-		    $Name = $SubId;
-		    ($RepClass,$other) = split(/_/, $Name);
-		}
-		
-		#-----------------------------+
-		# TIGR ZEA MAYS REPEAT        |
-		# DATABASE                    |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'zm_rep') {
-		    $HitCount++;
-		    $Name = $BlastHit->name();
-		    $RepClass = &GetTIGRClass($Name); 
-		}
-		
-
-		#-----------------------------+
-		# TIGR GRAMINEAE REPEAT       |
-		# DATABASE                    |
-		#-----------------------------+
-		elsif ($BlastDB =~ 'gram_rep') {
-		    $HitCount++;
-		    $Name = $BlastHit->name();
-		    #$RepClass = "UNK-ZeaRepeat";
-		    $RepClass = &GetTIGRClass($Name);
-		    
-		} 
-
-		#-----------------------------+
-		# DATABASE NOT RECOGNIZED     |
-		#-----------------------------+
-		else {
-
-		    #print "ERROR. The repeat database $BlastDB is not".
-		    #	" recognized by RepMiner.\n";
-		
-		    $Name = $SubId;
-		    $RepClass = "UNK";
-		}
-
-		#-----------------------------+
-		# San Miguel Database         |
-		#-----------------------------+
-#		$Name = $SubId;
-#		($RepClass,$other) = split(/_/, $Name);
-		
-
-		#-----------------------------+
-		# WRITE OUTPUT                |
-		#-----------------------------+
-
-		my $LoadRec = "INSERT INTO ".$tblQryCat.
-		    " (qry_id, qry_cat) ".
-		    " VALUES (".
-		    " '".$QryId."',".
-		    " '".$RepClass."'".
-		    ")";
-		$dbh->do($LoadRec);
-		
-		my @tmpqry = split(/\|/, $QryId );
-		my $OutName = $tmpqry[0]; 
-		
-		# TRY TO TRACK DOWN AN ERROR
-		#print "SQL\t\t$LoadRec\n";
-		print "\t\t".$OutName."\n";
-		#print "\t\t".$RepClass."\n";
-		#print "\t\t".$Name."\n";
-		# It appears that cycoscape shows the last one that 
-		# was added to the list, and ignores earlier 
-		# classifications
-		print REPOUT $OutName."=".$RepClass."\n";
-		print REPNAME $OutName."=".$Name."\n";
-		
-	    }
-
-	    $PreQry = $CurQry;	    
-	    
-	} # End of remove newline character
-	
-    } # End of while BLASTN
-
-}
-
-sub LoadTabRepClass {
-    my $BlastDB = $_[0];
-
-    print "Defining repeat classes using tab delim blast report.\n";
-    print "The repeat blast database is:".$BlastDB."\n";
-
-    #-----------------------------+
-    # LOAD THE REPEAT             |
-    # CLASSIFICATION BLAST OUTPUT |
-    #-----------------------------+
-    my $LoadRec;
-    my $QryName;
-    my $RepClass;
-
-    my $BlastReport = new Bio::SearchIO ( '-format' => 'blasttable',
-					  '-file'   => $RepBLAST,
-					  '-signif' => $MaxE,
-					  '-min_query_len' => $MinQryLen,
-					  '-score' => $MinScore ) ||
-    die "Could not open BLAST input file:\n$RepBLAST.\n";
-
-    #$BlastDB = $BlastResult->database_name;
-
-    while ($BlastResult = $BlastReport->next_result())
-    {
-	$QryName = $BlastResult->query_name;
-
-	#print "Rep Search".$QryName.":".$BlastDB."\n";
-
-	my $NumHits = $BlastResult->num_hits;
-	my $HitCount = "0";
-
-	while ( $BlastHit = $BlastResult->next_hit())
-	{
-
-	    #-----------------------------+
-	    # TREP REPEAT DATABASE        |
-	    #-----------------------------+
-	    if ($BlastDB =~ 'TREP_8' ||
-		$BlastDB =~ 'TREP_9')
-	    {
-		$HitCount++;
-
-		my $HitId = $BlastHit->accession()  || "UnkAcc";
-
-		$RepClass = &GetTREPClass($HitId);
-		$Name = &GetTREPName($HitId);
-
-		# Don't show output on quiet runs
-		if (! $quiet)
-		{
-		    print $QryName."\n";
-		    print "\t".$HitId.":".$Name."\n";
-		    print "\t".$RepClass."\n";
-		}
-
-	    }
-
-	    #-----------------------------+
-	    # REPBASE PLANTS              |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'RB_pln')
-	    {
-
-		$HitCount++;
-		$Class = "UNK";
-		$Subclass = "UNK";
-		$Superfamily = "UNK";
-		$Name = $BlastHit->name();
-		
-		my @SpName = (split /\#/, $Name);
-		my $CatSearch = trim($SpName[1] || "NONE");
-		
-		$RepClass = &GetRBClass($CatSearch); 
-
-	    }
-
-	    #-----------------------------+
-	    # MIPS DATABASE               |
-	    # This follows the RepBASE    |
-	    # foramt.                     |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'mips_REdat_4_3' || 
-		   $BlastDB =~ 'mips')
-	    {
-
-		$HitCount++;
-		$Class = "UNK";
-		$Subclass = "UNK";
-		$Superfamily = "UNK";
-		$Name = $BlastHit->name();
-		
-		my @SpName = (split /\#/, $Name);
-		my $CatSearch = trim($SpName[1] || "NONE");
-		
-		$RepClass = &GetRBClass($CatSearch); 
-
-		# Show what class is currently being read
-		if (! $quiet)
-		{
-		    print "MIPS Name:\t".$Name."\n";
-		}
-		
-	    }
-
-	    #-----------------------------+
-	    # TIGR ORYZA REPEAT DATABASE  |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'os_rep')
-	    {
-		$HitCount++;
-		$Name = $BlastHit->name();
-		$RepClass = &GetTIGRClass($Name);
-	    }
-
-
-	    #-----------------------------+
-	    # TIGR BRASSICACEAE REPEATS   |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'TIGRbras')
-	    {
-		$HitCount++;
-		$Name = $BlastHit->name();
-		$RepClass = &GetTIGRClass($Name);
-	    }
-
-	    #-----------------------------+
-	    # TIGR FABACEAE REPEATS       |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'TIGRfab')
-	    {
-		$HitCount++;
-		$Name = $BlastHit->name();
-		$RepClass = &GetTIGRClass($Name);
-	    }
-
-	    #-----------------------------+
-	    # TIGR SOLANACEAE REPEATS     |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'TIGRsol')
-	    {
-		$HitCount++;
-		$Name = $BlastHit->name();
-		$RepClass = &GetTIGRClass($Name);
-	    }
-
-	    #-----------------------------+
-	    # WESSLER LAB REPEAT DATABASE |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'Wessler')
-	    {
-		$HitCount++;
-		my $WesName = $BlastHit->name();
-		my @SpName = (split /\#/, $WesName);
-		$Name = $SpName[0];
-		
-		my $WesClass = $SpName[1];
-		
-		my $Desc = $BlastHit->description();
-		$RepClass = &GetWesClass($WesClass);
-
-		# DEBUG PRINT
-		# Not printed on 'quiet' runs
-		if (! $quiet)
-		{
-		    if ($RepClass  =~ "UNK")
-		    {
-			print $Name."\n";
-			print "\t".$WesClass."\n";
-			print "\t".$RepClass."\n";
-		    }
-		} # End of not quiet
-	    }
-
-	    #-----------------------------+
-	    # SAN MIGUEL REPEAT DATABASE  |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'SanMiguel')
-	    {
-		$HitCount++;
-		$Name = $BlastHit->name();
-		# Add code to simply name here to the string
-		# to the left of the underscore _
-		#$Name 
-		# Using the short name 'family' as
-		# the current RepClass although that
-		# is not really correct
-
-		# The following did not split
-#		my @SplitName = split(/_/, $Name ) ||
-#		    die "Could not split Hit Name: $Name";
-#		my $SplitLen = @SplitName;
-#		print "LEN:".$SplitLen."\n";
-#		$RepClass = $SplitName[0];
-
-		my $other;
-		($RepClass,$other) = split(/_/, $Name);
-
-
-#	    my @tmphitid = split(/\|/, $SubId ) ||
-#		die "Could not split SbjID";
-#	    $YCrd = $tmphitid[0];
-
-
-		#f (! $quiet)
-		#
-		#   #print $QryName."\n";
-		#   print "SanMig Name:\t".$Name."\n";
-		#   print "SanMig Class:\t".$RepClass."\n";
-		#
-
-	    }
-
-	    #-----------------------------+
-	    # TIGR ZEA MAYS REPEAT        |
-	    # DATABASE                    |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'zm_rep')
-	    {
-		$HitCount++;
-		$Name = $BlastHit->name();
-		$RepClass = &GetTIGRClass($Name); 
-	    }
-
-	    #-----------------------------+
-	    # TIGR GRAMINEAE REPEAT       |
-	    # DATABASE                    |
-	    #-----------------------------+
-	    elsif ($BlastDB =~ 'gram_rep')
-	    {
-		$HitCount++;
-		$Name = $BlastHit->name();
-		#$RepClass = "UNK-ZeaRepeat";
-		$RepClass = &GetTIGRClass($Name);
-		
-	    } else {
-		#-----------------------------+
-		# DATABASE NOT RECOGNIZED     |
-		#-----------------------------+
-		print "ERROR. The repeat database $BlastDB is not".
-		    " recognized by RepMiner.\n";
-	    }
-
-
-	    # CURRENTLY WILL ONLY LOAD THE BEST HIT INTO
-	    # THE DATABASE FOR A NICE QUICK AND DIRTY
-	    # ATTEMPT TO GET THIS TO WORK
-	    if ($HitCount == "1")
-	    {
-
-		# Can do the HSP parse here if only wanted for the 
-		# first hit.
-
-		# Check to see if a classification already exists for
-		# for this record. As it stands now, the later qry_cats
-		# will overwrite the newer qry cats.
-
-		# Can change the load record only record the classification
-
-		$LoadRec = "INSERT INTO ".$tblQryCat.
-		    " (qry_id, qry_cat) ".
-		    " VALUES (".
-		    " '".$QryName."',".
-		    " '".$RepClass."'".
-		    ")";
-		$dbh->do($LoadRec);
-
-		my @tmpqry = split(/\|/, $QryName );
-		my $OutName = $tmpqry[0]; 
-
-		# TRY TO TRACK DOWN AN ERROR
-		print "SQL\t\t$LoadRec\n";
-		print "\t\t".$OutName."\n";
-		print "\t\t".$RepClass."\n";
-		print "\t\t".$Name."\n";
-		# It appears that cycoscape shows the last one that 
-		# was added to the list, and ignores earlier 
-		# classifications
-		print REPOUT $OutName."=".$RepClass."\n";
-		print REPNAME $OutName."=".$Name."\n";
-
-	    } # End of if HitCount ==1
-
-	} # End of while BlastResult-next_hit
-
-    } # End of while BlastReport next_result
-
-}
-
-sub ParseTabBLAST {
-#-----------------------------+
-# LOAD A TAB DELIMITED ALL BY |
-# ALL BLAST REPORT            |
-#-----------------------------+
-# This is the tab delimited text file produced from 
-# the m8 or m9 option in BLAST, use of the m9 option
-# will required that lines starting with # must
-# be ignored, I therfore have the regexp (m/^\#.*/).
-# The available information:
-#  - $QryId ----> Id of the query sequence 
-#  - $SubId ----> Id of the subect seqence (from the database
-#  - $PID ------> Percent ID
-#  - $Len ------> Alignment length
-#  - $MisMatch -> Number of mismatches
-#  - $GapOpen --> Number of gap openings
-#  - $QStart ---> Start of alignment on query sequence
-#  - $QEnd -----> End of alignment on query sequence
-#  - $SStart ---> Start of aligment on Subject
-#  - $SEnd -----> End of alignment on Subject 
-#  - $EVal -----> E value of hit
-#  - $BitScore -> Bit Score of hit
-    
-    my $StartTime = time;
-    my @tmpqryid = "";    
-    
-    # Will try to figure out which one is quicker
-    my $TabBlastFile = $_[0];
-
-    # TOO MANY VAR FOR TESTING OUTPUT AND DEBUG
-#    my $TooMany = 100;
-    my $HitNum = 0;
-    my $NumEdges = 0;
-
-    # Concatenated IDs are used to return only a single edge for each
-    # Query Subject pair instead of each HSP
-    my $CurCatID = ""; # Previous concat ID
-    my $PreCatID = ""; # Current concat ID
-
-    # Vars to hold the concatenation of qry and subject
-
-
-    open (BLASTIN, "<".$TabBlastFile) ||
-	die "Can not open BLAST file.$TabBlastFile.\n";
-    
-    while (<BLASTIN>)
-    {
-	chomp;                 # Remove newline character
-	unless (m/^\#.*/)       # Ignore comment lines, works with -m 9 output
-	{
-	    $HitNum++;
-#	    if ($HitNum > $TooMany) 
-#	    {
-#		my $EndTime = time;
-#		my $TotalTime = $EndTime - $StartTime;
-#		print "TOTAL TIME\n\n".$TotalTime."\n";
-#		exit;
-#	    } 
-	    
-	    my ($QryId, $SubId, $PID, $Len, 
-		$MisMatch, $GapOpen, 
-		$QStart,$QEnd, $SStart, $SEnd,
-		$EVal, $BitScore) = split(/\t/);
-	    # Trim leading white space from Bit score
-	    $BitScore =~ s/^\s*(.*?)\s*$/$1/;
-
-
-# For some strange reason PERL interpets this to be a split
-# to an implicit @_ so this does not work
-#	    my @tmpqryid = split(/\|/, $QryId ) ||
-#		die "Could not split QryID";
-#	    $XCrd = $tmpqryid[0];
-#	    my @tmphitid = split(/\|/, $SubId ) ||
-#		die "Could not split SbjID";
-#	    $YCrd = $tmphitid[0];
-
-
-	    # The following is a temp fix, this will probably
-	    # only work as expected for two vars split by a pipe character
-	    my ($XCrd, $SomeCrap) = split(/\|/, $QryId);
-	    $XCrd = int($XCrd);
-	    
-	    my ($YCrd, $MoreCrap) = split(/\|/, $SubId);
-	    $YCrd = int($YCrd);
-
-            # THE FOLLOWING ONLY PRINTED FOR DEBUG PURPOSES
-	    #print "QryID was:".$QryId."\n";
-	    #print "HitID was:".$SubId."\n";
-	    #print "X:".$XCrd."\n";
-	    #print "Y:".$YCrd."\n";
-	    #print "$XCrd\t$YCrd\n";
-
-	    #-----------------------------+
-	    # WRITE EDGE INFORMATION TO   |
-	    # SIF AND *.EA FILES          |
-	    #-----------------------------+
-	    # The following code is a bit of a kludge that depends
-	    # on cytoscape's intepretation of sif files.
-	    # It would be better to write this as a subfunction
-	    # that would allow the same code to be used for
-	    # multiple local alignment programs.
-	    # This will be kept here for now
-
-
-	    # Added 05/16/2007 
-	    $CurCatID = $XCrd.":".$YCrd;
-	    # Draw a new edge unless it has already been drawn, this assumes
-	    # the the order HSPs is ordered such that all HSPs for a subject
-	    # sequence will occur in the same order. This only returns the
-	    # information for the first hit encountered in the tab blast
-	    # output. -- 05/17/2007
-	    unless ( $CurCatID =~ $PreCatID)
-	    {
-		# Increment the number of edges then decide
-		# how to draw the graph
-		$NumEdges++;         
-		
-		if ($GraphDir == '0')
-		{
-		    #-----------------------------+
-		    # UNDIRECTED x < y            |
-		    #-----------------------------+
-		    if ($XCrd < $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		    
-		} elsif ($GraphDir == '1'){
-		    
-		    #-----------------------------+
-		    # UNDIRECTED x != y           |
-		    #-----------------------------+ 
-		    # Using (bl) for both directed makes digraph into unigraph
-		    # This is sloppy and depends on cytoscape to interpret
-		    if ($XCrd != $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		} elsif ($GraphDir == '2'){
-		    #-----------------------------+
-		    # UNDIRECTED ALL x and y      |
-		    #-----------------------------+
-		    # All x and y
-		    print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-		    print BITOUT $XCrd." (bl) ".$YCrd." = ".$BitScore."\n";
-		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-		    print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    
-		} elsif ($GraphDir == '3') {
-		    #-----------------------------+
-		    # DIRECTED x < y              |
-		    #-----------------------------+
-		    # Same output as undirected graph
-		    # Cytoscape interpets
-		    if ($XCrd < $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		} elsif ($GraphDir == '4') {
-		    #-----------------------------+
-		    # DIRECTED x != y             |
-		    #-----------------------------+
-		    # The use of bot ensures that the x < y is treated as 
-		    # different information then x > y.
-		    if ($XCrd < $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		    if ($XCrd > $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbot\t".$YCrd."\n";
-			print BITOUT $XCrd." (bot) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bot) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bot) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		} elsif ($GraphDir == '5') {
-		    #-----------------------------+
-		    # DIRECTED ALL x and y        |
-		    #-----------------------------+
-		    # All x and y
-		    # The use of bot ensures that the x < y is treated as 
-		    # different information then x > y.
-		    if ($XCrd <= $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-			print BITOUT $XCrd." (bl) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bl) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bl) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		    if ($XCrd > $YCrd)
-		    {
-			print SIFOUT $XCrd."\tbot\t".$YCrd."\n";
-			print BITOUT $XCrd." (bot) ".$YCrd." = ".
-			    $BitScore."\n";
-			print SIGOUT $XCrd." (bot) ".$YCrd." = ".$EVal."\n";
-			print PIDOUT $XCrd." (bot) ".$YCrd." = ".$PID."\n";
-		    } # End of if XCrd > YCrd
-		    
-		} # End of if statements for GraphDir
-
-	    } # End of unless CurCatID =~ PrevCatID    
-	    $PreCatID = $CurCatID;
-
-	} # End of unless commented out string
-    } # End of while statement for working throught BLAST file
-
-    # Print the number of edges found
-    print "EDGES:".$NumEdges."\n";
-    
-} # End of ParseTabBlast subfunction
-
-
-
-sub ParseTabBLAST2Graph {
+sub ParseBLAST2Graph {
 
     my $TabBlastFile = $_[0];
+    my $blast_format = $_[1];
+
+    #my $blast_format = 'blasttable';
+    #my $blast_format = 'blast';
 
     my $StartTime = time;
     my @tmpqryid = "";    
@@ -1757,21 +970,19 @@ sub ParseTabBLAST2Graph {
     my $FastDir = $NetDir."fasta/";
     mkdir $FastDir, 0777 unless (-e $FastDir);
     
-    # Create and undirected graph object, the default is to
-    # create a directed graph
-    # Set the scope of the graph object to be local
-    my $g;
     
-    #-----------------------------+
-    # SET GRAPH DIRECTION         |
-    # LOAD GRAPH OBJECT           |
-    #-----------------------------+
+    #-----------------------------------------------------------+
+    # SET GRAPH DIRECTION LOAD GRAPH OBJECT                     |
+    #-----------------------------------------------------------+
+    # The default is to create an undirected graph
+    # This is set from the --direction option of the command line
     my $directed_graph = 0;
+
     if ( $GraphDir == '3' ||  $GraphDir == '4' ||  $GraphDir == '5' ) {
 	$directed_graph = 1;
     }
-    
-    # otherwise we must deal with transitive closure approaches
+
+    my $g;
     if ( $directed_graph == 1) {
 	$g = Graph->new (directed => 1);
     }
@@ -1787,70 +998,44 @@ sub ParseTabBLAST2Graph {
     my $NumEdges = 0; # The number of edges
     my $NumSing = 0;  # The number of singletons
     my $NumMult = 0;  # The number of clustes with multiple seqs
-	
-    # Concatenated IDs are used to return only a single edge for each
-    # Query Subject pair instead of each HSP
-    my $CurCatID = ""; # Previous concat ID
-    my $PreCatID = ""; # Current concat ID
 
-    open (BLASTIN, "<".$TabBlastFile) ||
-	die "Can not open BLAST file.$TabBlastFile.\n";
-
-    print STDERR "Adding nodes to Graph object\n" if $verbose;
-    $HitNum = 0;
-    my $PrevX = "NULL";
     my $NumNodes = 0;
-    while (<BLASTIN>)
-    {
-	chomp;                 # Remove newline character
-	unless (m/^\#.*/)       # Ignore comment lines, works with -m 9 output
-	{
-	    $HitNum++;
-	    
-	    my ($QryId, $SubId, $PID, $Len, 
-		$MisMatch, $GapOpen, 
-		$QStart,$QEnd, $SStart, $SEnd,
-		$EVal, $BitScore) = split(/\t/);
+    my $blast_report_node;
 
+    $blast_report_node = new Bio::SearchIO ( '-format' =>  $blast_format,
+					     '-file'   =>  $TabBlastFile)
+	|| die "Could not open BLAST input file:\n$TabBlastFile.\n";
 
-	    # Trim leading white space from Bit score
-	    $BitScore =~ s/^\s*(.*?)\s*$/$1/;
+    # NOTE: Can use the following for score and length filtering
+    #my $BlastReport = new Bio::SearchIO ( '-format' => 'blast',
+	#				  '-file'   => $in_aba_blast, 
+	#				  '-signif' => $A_MaxE, 
+	#				  '-min_query_len' => $A_MinQryLen,
+	#				  '-score' => $A_MinScore ) 
+    
+    while (my $blast_result = $blast_report_node->next_result()) {
 
-	    # The following is a temp fix, this will probably
-	    # only work as expected for two vars split by a pipe character
-	    my ($X, $SomeCrap) = split(/\|/, $QryId);
-	    $X = int($X);
+	my @qry_split = split(/\|/, $blast_result->query_name);
+	my $node_id = $qry_split[0];
+	$node_id = int($node_id);
 
-	    # Only load the records that have not already occured
-	    unless ($X =~ $PrevX) {
+	print STDERR "Adding Node: $node_id\n" if $verbose;
+	$NumNodes++;
+	$g->add_vertex( $node_id );
 
-		print STDERR "Adding Node: $X\n" if $verbose;
-		$NumNodes++;
-		$g->add_vertex( $X );	
+	#-----------------------------+
+	# FETCH THE SEQUENCE STRING   |
+	#-----------------------------+
+	# Added 12/12/2008
+	if ($do_seq) {
+	    my $qry_seq_data = &FetchSeqInfo("tblSeqData", 
+					   "seq", 
+					   "rownum",
+					   $node_id);
+	    print SEQOUT $node_id."=".$qry_seq_data."\n";
+	}
 
-		#-----------------------------+
-		# FETCH THE SEQUENCE STRING   |
-		#-----------------------------+
-		# Added 12/12/2008
-		if ($do_seq) {
-		    my $QrySeqData = &FetchSeqInfo("tblSeqData", 
-						   "seq", 
-						   "rownum",
-						   $X);
-		    print SEQOUT $X."=".$QrySeqData."\n";
-		}
-
-
-	    }
-	    $PrevX = $X;
-	    
-	} # End of unless commented out string
-
-    } # End of while statement for working throught BLAST file
-
-
-    # Close the BLAST file
-    close BLASTIN;
+    } # End of iterate through blast report
 
     #-----------------------------------------------------------+
     # ADD EDGES TO GRAPH                                        |
@@ -1858,8 +1043,8 @@ sub ParseTabBLAST2Graph {
 
     my $blast_report;
 
-    $blast_report = new Bio::SearchIO ( '-format' => 'blasttable',
-					'-file'   =>  $TabBlastFile)
+	$blast_report = new Bio::SearchIO ( '-format' => $blast_format,
+					    '-file'   =>  $TabBlastFile)
 	|| die "Could not open BLAST input file:\n$TabBlastFile.\n";
 
 
@@ -2076,6 +1261,36 @@ sub ParseTabBLAST2Graph {
 	    } # End of if statements for GraphDir
 
 
+
+
+# HSP PARSING WOULD BE HERE
+#	    my $HspNum = "0"; # Initialize HSP Num
+#	    while ( $HSP = $BlastHit->next_hsp())
+#	    {
+#
+#		$HspNum++;
+#		# May need to add hsp# 
+#		# where # is 1 to num_hsps for multiple hsps
+#		if (! $quiet)
+#		{
+#		    print "\t".$HSP->frac_identical."\n";
+#		    print "\t".$HSP->length('total')."\n";
+#		}
+#
+#		if ($XCrd > $YCrd)
+#		{
+#
+#		    print HSPOUT $XCrd."\thsp$HspNum\t".$YCrd."\n";
+#		    print HSPFI $XCrd." (hsp$HspNum) ".$YCrd." = ".
+#			$HSP->frac_identical."\n";
+#
+#		}
+#
+#	    } #End of Next HSP
+
+
+
+
 	} # End of BLAST next hit
     } # End of BLAST parsing
 
@@ -2083,13 +1298,12 @@ sub ParseTabBLAST2Graph {
 
 
     #-----------------------------+
-    # PRINT STRINGIFIED GRAPH
+    # PRINT STRINGIFIED GRAPH     |
     #-----------------------------+
     # This actually prints all nodes connected by edges
     # as separated by -, singletons are printed at the end
     #print "The graph is $g\n";
     
-
 
     #-----------------------------------------------------------+
     # CLUSTER BY CONNECTED COMPONENTS                           |
@@ -2381,220 +1595,36 @@ sub ParseTabBLAST2Graph {
 
     }
 
+    
+    if ($do_art) {
+	my $art_na = $NetDir."articulation_points.NA";
 
+	print STDERR "Getting articulation points ...";    
+
+	open (ARTOUT, ">$art_na") ||
+	    die "Can not open articulation points file\n $art_na\n";
+
+	print ARTOUT "ARTICULATION_POINTS\n";
 	
+	my @art_points = $g->articulation_points;
 
+	my $count_art_points = @art_points;
 
-    
-    
-#
-#    # The vertices and edges can also be loaded into an array
-#    my @V = $g->vertices;
-#    @V = sort{$a <=> $b} (@V);
-#    foreach my $IndV (@V)
-#    {
-#	print "$IndV\n";
-#    }
+	print STDERR "finished\n";
 
-    # Average path length is the average shortest path
-    
-    
-
-    #//////////////////////////////////////////////////////////////
-    # NOTE: Can fetch the connect_components_by_vertix
-    #       to create subgraphs that can be analyzed separately
-    #$i = $g->connected_component_by_vertex($v)
-    #\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-
- 
+	print STDERR "ART NUM:\t$count_art_points\n";
+	
+	
+	foreach my $art_point (@art_points) {
+	    print STDERR "ART:\t$art_point\n";
+	}
+	
+	close ARTOUT;
+    }
 
 
 } # End of ParseTabBlast subfunction
 
-
-sub LoadAllByAll {
-#-----------------------------+
-# LOAD RESULT OF ALL BY ALL   |
-# BLAST TO THE DATABASE       |
-# AND TEMPORARILY TO THE BLAST|
-# MATRIX 2D ARRAY             |
-#-----------------------------+
-#
-# THIS IS THE CORE OF THE GRAPH BASED APPROACH
-# TO EXPLORING THE RESULTS OF AN ALL BY ALL BLAST
-#
-    my $BlastReport = new Bio::SearchIO ( '-format' => 'blast',
-					  '-file'   => $in_aba_blast, 
-					  '-signif' => $A_MaxE, 
-					  '-min_query_len' => $A_MinQryLen,
-					  '-score' => $A_MinScore ) 
-	||
-        die "Could not open BLAST input file:\n$in_aba_blast.\n";
-    
-    while ($BlastResult = $BlastReport->next_result())
-    {
-	my ($LoadRec); # Set scope for this subfunction
-
-	my $NumHits = $BlastResult->num_hits;
-	my $QryName = $BlastResult->query_name;
-
-	print STDOUT $QryName."\t".$NumHits."\n"; 
-
-	my @tmpqry = split(/\|/, $QryName );
-	$XCrd = $tmpqry[0];                  # First part of name is number
-                                             # representing X position
-	my $DbQryID = $tmpqry[1];            # Second part of name is unique
-                                             # id to allow lookup in the DB
-
-	#-----------------------------+
-	# SELECT NODE ATTRIBUTES FROM |
-	# THE DATABASE AND PRINT THE  |
-	# RESULTS TO THE NODE         |
-	# ATTRIBUTE FILES             |
-	#-----------------------------+
-
-	# FETCH THE SEQUENCE STRING FROM THE DATABASE
-	if ($do_seq) {
-	    my $QrySeqData =&FetchSeqInfo("tblSeqData", "seq", "rownum",
-					   $XCrd);
-	    print SEQOUT $XCrd."=".$QrySeqData."\n";
-	}
-
-	if ($XCrd > $MaxVal) {$MaxVal = $XCrd;}
-	print $XCrd."\n";
-	while ( $BlastHit = $BlastResult->next_hit())
-	{
-	    my $HitName = $BlastHit->name();
-	    my $BitScore = $BlastHit->bits();
-	    my $HitSig = $BlastHit->significance();
-
-	    my @tmphit = split(/\|/, $HitName );
-	    $YCrd = $tmphit[0];
-
-
-	    #-----------------------------------------------------------+
-	    #                                                           |
-	    # DEFINE THE GRAPH                                          |
-	    #                                                           |
-	    # ALGORITHM WORK NEEDED HERE                                |
-	    # 01/08/2007                                                |
-	    # This graph defintion creates the nodes as well as the 
-	    # edges by defining a list of directed edges connecting 
-	    # nodes.
-	    #                                                           |
-	    #-----------------------------------------------------------+
-	    # Print output for each all by all hit to the 
-	    # sif output file. Only do this for x > Y
-	    # to prevent redundancy in the netwrok file.
-	    # This should take the graph building variable as an
-	    # argument.
-	    
-	    # I am using XCrd and YCrd instead of i and j in the matrix
-	    # terminology.
-
-	    # The following only does the top triangle of the
-	    # adjacency matrix.
-
-	    # The following only does the top part of the homology
-	    # matrix
-	    if ($XCrd > $YCrd)
-	    {
-		print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-		print BITOUT $XCrd." (bl) ".$YCrd." = ".$BitScore."\n";
-		print SIGOUT $XCrd." (bl) ".$YCrd." = ".$HitSig."\n";
-
-	    }
-
-	    #-----------------------------+
-	    # The following drew both lines
-	    # but it drew them in the same
-	    # direction ... I am possible
-	    # messed up with the setting
-	    # of the X and Y Crds above
-	    # The following does the bottom part of the homology matrix
-	    # Using this with the above will create a dataset that 
-	    # Cytoscape will interpret as a undirected graph
-	    if ($XCrd < $YCrd)
-	    {
-		# I thought that this should do YCrd Then XCrd 
-                # to show path in other direction but this is not printing
-		# like I thought it would.
-		# Changed bl to bot to show this is the bottom part of
-		# the matrix.
-		print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
-		print BITOUT $XCrd." (bl) ".$YCrd." = ".$BitScore."\n";
-		print SIGOUT $XCrd." (bl) ".$YCrd." = ".$HitSig."\n";
-
-	    }
-
-	    $ResultCount++;
-
-	    if ($YCrd == $XCrd)
-	    {
-		# IDENTIFY SELF HITS IN hit_cat FIELD
-		$LoadRec = "INSERT INTO ".$tblAllByAll.
-		    " (qry_num, hit_num, qry_id, num_hits, hit_cat) ".
-		    " VALUES (".
-		    " '".$XCrd."',".
-		    " '".$YCrd."',".
-		    " '".$QryName."',".
-		    " '".$NumHits."',".
-		    " 'self'".
-		    ")";
-	    }else{
-		# DO NOT IDENTIFY hit_cat
-		$LoadRec = "INSERT INTO ".$tblAllByAll.
-		    " (qry_num, hit_num, qry_id, num_hits) ".
-		    " VALUES (".
-		    " '".$XCrd."',".
-		    " '".$YCrd."',".
-		    " '".$QryName."',".
-		    " '".$NumHits."'".
-		    ")";
-	    }
-
-	    $dbh->do($LoadRec);
-
-	    # TEMP EXIT FOR DEBUG
-	    # if ($ResultCount == 100){exit;}
-
-# 01/10/2007
-# COMMENTED OUT THE FOLLOWING HSP WORK TO TRY TO
-# FIX DIGRAPH OUTPUT
-#	    my $HspNum = "0"; # Initialize HSP Num
-#	    while ( $HSP = $BlastHit->next_hsp())
-#	    {
-#
-#		$HspNum++;
-#		# May need to add hsp# 
-#		# where # is 1 to num_hsps for multiple hsps
-#		if (! $quiet)
-#		{
-#		    print "\t".$HSP->frac_identical."\n";
-#		    print "\t".$HSP->length('total')."\n";
-#		}
-#
-#		if ($XCrd > $YCrd)
-#		{
-#
-#		    print HSPOUT $XCrd."\thsp$HspNum\t".$YCrd."\n";
-#		    print HSPFI $XCrd." (hsp$HspNum) ".$YCrd." = ".
-#			$HSP->frac_identical."\n";
-#
-#		}
-#
-#	    } #End of Next HSP
-
-
-
-
-
-
-
-	} # End of Next BLAST hit
-
-    } # End of BLAST result next resul   
-} # End of Load All By All Subfunction
 
 
 sub does_table_exist {
@@ -3195,10 +2225,6 @@ The repeat databases that jabablast can use include:
 
 Path to the AllByAllBlast File to parse.
 
-=item -r RepBlast.blo
-
-The BLAST results against known repeats.
-
 =item -o OutDir
 
 The path of the output directory.
@@ -3284,47 +2310,60 @@ default = tblRepeatID
 
 =over 2
 
-=item -m 8
+=item -m, --format
 
 blast output aligment view. [Integer 0,8, or 9]
 This matches the -m flag from NCBI blastall
 default = -m 8
 
--m 0 = pairwise
+-m 0 = pairwise NCBI-BLAST
 
--m 8 = tabular (default)
+-m 8 = tabular NCBI-BLAST
 
--m 9 = tabular with comment lines
+-m 9 = tabular NCBI-BLAST with comment lines
 
-=item -e 1.0e-05
+=item -e, --maxe
 
 Max e value for All by All BLAST results.
 default = 1.0e-05
 
-=item -s 50
+=item -s, --score
 
 Minimum bit score for All by All BLAST results.[Integer]
 default = 50
 
-=item -l 150
+=item -l, --len
 
 Mimimum length of the query sequence in All by All BLAST
 default = 150
 
-=item -E 1.0e-03 
+=item --class-blast
+
+Path to the BLAST results against known repeats. These search results
+will be used for classification of the nodes in the network.
+
+=item --class-maxe 1.0e-03 
 
 Max e-value for BLAST against repeat database.
 default = 1.0e-03 
 
-=item -S 50
+=item --class-score 50
 
-Minimum bit score for BLAST against repeat database.
-    default = 50
+Minimum bit score for BLAST against repeat database. default = 50
 
-=item -L 50
+=item --class-len 50
 
 Minimum length of the query sequence against the repeat database.
 default = 50
+
+=item --class-db
+
+The database name for the classification database. This name will
+be used to decide which classification parser to use to classify
+the database. If a classification database is not provided, the
+program will attempt to fetch the db name from the blast report.
+However, since -m8 and -m9 blast reports do not include the database
+name, you will need to manually set the -class-db. 
 
 =back
 
@@ -3515,6 +2554,18 @@ graph that includes edges to self you would use the following command:
 
  jaba_blast.pl -i te_seqs_te_seqs.bln -d jaba_test -u username
                -o net_out -f net_file --cyto-launch --direction 5
+
+=head 2 
+
+An example of using a config file with the default blast output:
+
+ jaba_blast.pl --config test_confg_3.jcfg --verbose --direction 2 
+               --cyto-launch -m 0
+
+An example of using a config file with tab delim blast output:
+
+ jaba_blast.pl --config test_confg_3.jcfg --verbose --direction 2 
+               --cyto-launch -m 8
 
 =head1 DIAGNOSTICS
 
@@ -4103,13 +3154,35 @@ VERSION: $Rev$
 #   connected components
 # - Added graph stats option
 #
+# 12/16/2008
+# - Added option to fetch articulation points
+# - Changed load nodes to a bioperl Bio::SearchIO
+#   This is slower then the previous code, but will
+#   be more stable
+# - Removed the ParseTabBlast subfunction. It is 
+#   now redundant
+# - The complete switch to a SearchIO format will allow
+#   this same parser to parse FASTA and WUBLAST all by
+#   all queries
+#   http://www.bioperl.org/wikie/Module::SearchIO
+#   The jaba_blast.pl script will simply stick with
+#   NCBI-BLAST for the first iteration
+#   see Bio::SearchIO::fasta
+# - Blast table will work with -mformat 2 and
+#  -mformat 3 in WU-BLAST
+# - Rename ParseTabBLAST2Graph to ParseBLAST2Graph
+# - Dropped the redundant LoadAllByAll subfunction,
+#   put in the scrapyard at the end of the program for now
+# - Moved LoadTabRepClassNew and LoadTabRepClass 
+#   to the scrapyard. The are being replaced by the LoadRepClass
+#   subfunction. This subfunctions uses the generalized 
+#   
+#
 #-----------------------------------------------------------+
 # TODO                                                      |
 #-----------------------------------------------------------+
 # 
 # NEEDED
-# - Calculate identity of the hit base on HSP info if needed. This
-#   should range from 0 to 1.0. 0.95 if 95 Percent identity.
 # 
 # WANTED
 # - Currently this uses a Best Hit to determine the Class and name
@@ -4271,4 +3344,731 @@ sub DrawXYPlot {
 
 }
 
+
+sub LoadAllByAll {
+#-----------------------------+
+# LOAD RESULT OF ALL BY ALL   |
+# BLAST TO THE DATABASE       |
+# AND TEMPORARILY TO THE BLAST|
+# MATRIX 2D ARRAY             |
+#-----------------------------+
+#
+# THIS IS THE CORE OF THE GRAPH BASED APPROACH
+# TO EXPLORING THE RESULTS OF AN ALL BY ALL BLAST
+#
+    my $BlastReport = new Bio::SearchIO ( '-format' => 'blast',
+					  '-file'   => $in_aba_blast, 
+					  '-signif' => $A_MaxE, 
+					  '-min_query_len' => $A_MinQryLen,
+					  '-score' => $A_MinScore ) 
+	||
+        die "Could not open BLAST input file:\n$in_aba_blast.\n";
+    
+    while ($BlastResult = $BlastReport->next_result())
+    {
+	my ($LoadRec); # Set scope for this subfunction
+
+	my $NumHits = $BlastResult->num_hits;
+	my $QryName = $BlastResult->query_name;
+
+	print STDOUT $QryName."\t".$NumHits."\n"; 
+
+	my @tmpqry = split(/\|/, $QryName );
+	$XCrd = $tmpqry[0];                  # First part of name is number
+                                             # representing X position
+	my $DbQryID = $tmpqry[1];            # Second part of name is unique
+                                             # id to allow lookup in the DB
+
+	#-----------------------------+
+	# SELECT NODE ATTRIBUTES FROM |
+	# THE DATABASE AND PRINT THE  |
+	# RESULTS TO THE NODE         |
+	# ATTRIBUTE FILES             |
+	#-----------------------------+
+
+	# FETCH THE SEQUENCE STRING FROM THE DATABASE
+	if ($do_seq) {
+	    my $QrySeqData =&FetchSeqInfo("tblSeqData", "seq", "rownum",
+					   $XCrd);
+	    print SEQOUT $XCrd."=".$QrySeqData."\n";
+	}
+
+	if ($XCrd > $MaxVal) {$MaxVal = $XCrd;}
+	print $XCrd."\n";
+	while ( $BlastHit = $BlastResult->next_hit())
+	{
+	    my $HitName = $BlastHit->name();
+	    my $BitScore = $BlastHit->bits();
+	    my $HitSig = $BlastHit->significance();
+
+	    my @tmphit = split(/\|/, $HitName );
+	    $YCrd = $tmphit[0];
+
+
+	    #-----------------------------------------------------------+
+	    #                                                           |
+	    # DEFINE THE GRAPH                                          |
+	    #                                                           |
+	    # ALGORITHM WORK NEEDED HERE                                |
+	    # 01/08/2007                                                |
+	    # This graph defintion creates the nodes as well as the 
+	    # edges by defining a list of directed edges connecting 
+	    # nodes.
+	    #                                                           |
+	    #-----------------------------------------------------------+
+	    # Print output for each all by all hit to the 
+	    # sif output file. Only do this for x > Y
+	    # to prevent redundancy in the netwrok file.
+	    # This should take the graph building variable as an
+	    # argument.
+	    
+	    # I am using XCrd and YCrd instead of i and j in the matrix
+	    # terminology.
+
+	    # The following only does the top triangle of the
+	    # adjacency matrix.
+
+	    # The following only does the top part of the homology
+	    # matrix
+	    if ($XCrd > $YCrd)
+	    {
+		print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
+		print BITOUT $XCrd." (bl) ".$YCrd." = ".$BitScore."\n";
+		print SIGOUT $XCrd." (bl) ".$YCrd." = ".$HitSig."\n";
+
+	    }
+
+	    #-----------------------------+
+	    # The following drew both lines
+	    # but it drew them in the same
+	    # direction ... I am possible
+	    # messed up with the setting
+	    # of the X and Y Crds above
+	    # The following does the bottom part of the homology matrix
+	    # Using this with the above will create a dataset that 
+	    # Cytoscape will interpret as a undirected graph
+	    if ($XCrd < $YCrd)
+	    {
+		# I thought that this should do YCrd Then XCrd 
+                # to show path in other direction but this is not printing
+		# like I thought it would.
+		# Changed bl to bot to show this is the bottom part of
+		# the matrix.
+		print SIFOUT $XCrd."\tbl\t".$YCrd."\n";
+		print BITOUT $XCrd." (bl) ".$YCrd." = ".$BitScore."\n";
+		print SIGOUT $XCrd." (bl) ".$YCrd." = ".$HitSig."\n";
+
+	    }
+
+	    $ResultCount++;
+
+	    if ($YCrd == $XCrd)
+	    {
+		# IDENTIFY SELF HITS IN hit_cat FIELD
+		$LoadRec = "INSERT INTO ".$tblAllByAll.
+		    " (qry_num, hit_num, qry_id, num_hits, hit_cat) ".
+		    " VALUES (".
+		    " '".$XCrd."',".
+		    " '".$YCrd."',".
+		    " '".$QryName."',".
+		    " '".$NumHits."',".
+		    " 'self'".
+		    ")";
+	    }else{
+		# DO NOT IDENTIFY hit_cat
+		$LoadRec = "INSERT INTO ".$tblAllByAll.
+		    " (qry_num, hit_num, qry_id, num_hits) ".
+		    " VALUES (".
+		    " '".$XCrd."',".
+		    " '".$YCrd."',".
+		    " '".$QryName."',".
+		    " '".$NumHits."'".
+		    ")";
+	    }
+
+	    $dbh->do($LoadRec);
+
+	    # TEMP EXIT FOR DEBUG
+	    # if ($ResultCount == 100){exit;}
+
+# 01/10/2007
+# COMMENTED OUT THE FOLLOWING HSP WORK TO TRY TO
+# FIX DIGRAPH OUTPUT
+#	    my $HspNum = "0"; # Initialize HSP Num
+#	    while ( $HSP = $BlastHit->next_hsp())
+#	    {
+#
+#		$HspNum++;
+#		# May need to add hsp# 
+#		# where # is 1 to num_hsps for multiple hsps
+#		if (! $quiet)
+#		{
+#		    print "\t".$HSP->frac_identical."\n";
+#		    print "\t".$HSP->length('total')."\n";
+#		}
+#
+#		if ($XCrd > $YCrd)
+#		{
+#
+#		    print HSPOUT $XCrd."\thsp$HspNum\t".$YCrd."\n";
+#		    print HSPFI $XCrd." (hsp$HspNum) ".$YCrd." = ".
+#			$HSP->frac_identical."\n";
+#
+#		}
+#
+#	    } #End of Next HSP
+
+
+
+
+
+
+
+	} # End of Next BLAST hit
+
+    } # End of BLAST result next resul   
+} # End of Load All By All Subfunction
+
+sub LoadTabRepClassNew {
+    # Only the first hit from the BLAST is used here
+    # Since the variables are not the same as the 
+    # SeqIO objects, this code will need to be modified
+    # for the different databases.
+
+    # Parsing the BLAST file using native PERL functions for
+    # working with text files is much faster then using the
+    # BioPERL SeqIO
+    my $TabBlastFile = $_[0];
+    my $BlastDB = $_[1];
+    my $PreQry = "";              # Qry ID of previous hit 
+    my $CurQry = "";              # Qry ID of current hit
+    my $other; # Var to extra information with the name
+    my $RepClass;
+    my $Name;
+    my $HitCount = 0;
+
+    open (BLASTIN, "<".$TabBlastFile) ||
+	die "Can not open BLAST file.$TabBlastFile.\n";
+
+    while (<BLASTIN>)
+    {
+	chomp;                 # Remove newline character
+	unless (m/^\#.*/)       # Ignore comment lines, works with -m 9 output
+	{
+	    
+	    my ($QryId, $SubId, $PID, $Len, 
+		$MisMatch, $GapOpen, 
+		$QStart,$QEnd, $SStart, $SEnd,
+		$EVal, $BitScore) = split(/\t/);
+
+	    # Trim leading white space from Bit score
+	    $BitScore =~ s/^\s*(.*?)\s*$/$1/;
+
+	    $CurQry = $QryId;
+
+	    # Only use the top hit 
+	    unless ($CurQry =~ $PreQry) {
+		#-----------------------------+
+		# PARSE INFORMATION DEPENDENT |
+		# ON THE REPEAT DATABASE USED | 
+		#-----------------------------+ 
+		if ($BlastDB =~ 'TREP_8' ||
+		    $BlastDB =~ 'TREP_9') {
+		    $HitCount++;
+		    
+		    my $HitId = $BlastHit->accession()  || "UnkAcc";
+		    
+		    $RepClass = &GetTREPClass($HitId);
+		    $Name = &GetTREPName($HitId);
+		    
+		    # Don't show output on quiet runs
+		    if (! $quiet)
+		    {
+			print $QryName."\n";
+			print "\t".$HitId.":".$Name."\n";
+			print "\t".$RepClass."\n";
+		    }
+		    
+		}
+		
+		#-----------------------------+
+		# REPBASE PLANTS              |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'RB_pln') {
+		    
+		    $HitCount++;
+		    $Class = "UNK";
+		    $Subclass = "UNK";
+		    $Superfamily = "UNK";
+		    $Name = $BlastHit->name();
+		    
+		    my @SpName = (split /\#/, $Name);
+		    my $CatSearch = trim($SpName[1] || "NONE");
+		    
+		    $RepClass = &GetRBClass($CatSearch); 
+		    
+		}
+		
+		#-----------------------------+
+		# MIPS DATABASE               |
+		# This follows the RepBASE    |
+		# foramt.                     |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'mips_REdat_4_3' || 
+		       $BlastDB =~ 'mips') {
+		    
+		    $HitCount++;
+		    $Class = "UNK";
+		    $Subclass = "UNK";
+		    $Superfamily = "UNK";
+		    $Name = $BlastHit->name();
+		    
+		    my @SpName = (split /\#/, $Name);
+		    my $CatSearch = trim($SpName[1] || "NONE");
+		
+		    $RepClass = &GetRBClass($CatSearch); 
+		    
+		    # Show what class is currently being read
+		    print "MIPS Name:\t".$Name."\n" if $verbose;
+		    
+		}
+		
+		#-----------------------------+
+		# TIGR ORYZA REPEAT DATABASE  |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'os_rep') {
+		    $HitCount++;
+		    $Name = $BlastHit->name();
+		    $RepClass = &GetTIGRClass($Name);
+		}
+		
+		
+		#-----------------------------+
+		# TIGR BRASSICACEAE REPEATS   |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'TIGRbras') {
+		    $HitCount++;
+		    $Name = $BlastHit->name();
+		    $RepClass = &GetTIGRClass($Name);
+		}
+		
+		#-----------------------------+
+		# TIGR FABACEAE REPEATS       |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'TIGRfab') {
+		    $HitCount++;
+		    $Name = $BlastHit->name();
+		    $RepClass = &GetTIGRClass($Name);
+		}
+		
+		#-----------------------------+
+		# TIGR SOLANACEAE REPEATS     |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'TIGRsol') {
+		    $HitCount++;
+		    $Name = $BlastHit->name();
+		    $RepClass = &GetTIGRClass($Name);
+		}
+		
+		#-----------------------------+
+		# WESSLER LAB REPEAT DATABASE |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'Wessler') {
+		    $HitCount++;
+		    my $WesName = $BlastHit->name();
+		    my @SpName = (split /\#/, $WesName);
+		    $Name = $SpName[0];
+		    
+		    my $WesClass = $SpName[1];
+		    
+		    my $Desc = $BlastHit->description();
+		    $RepClass = &GetWesClass($WesClass);
+		    
+		    # DEBUG PRINT
+		    # Not printed on 'quiet' runs
+		    if (! $quiet)
+		    {
+			if ($RepClass  =~ "UNK")
+			{
+			    print $Name."\n";
+			    print "\t".$WesClass."\n";
+			    print "\t".$RepClass."\n";
+			}
+		    } # End of not quiet
+		}
+		
+		#-----------------------------+
+		# SAN MIGUEL REPEAT DATABASE  |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'SanMiguel') {
+		    $Name = $SubId;
+		    ($RepClass,$other) = split(/_/, $Name);
+		}
+		
+		#-----------------------------+
+		# TIGR ZEA MAYS REPEAT        |
+		# DATABASE                    |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'zm_rep') {
+		    $HitCount++;
+		    $Name = $BlastHit->name();
+		    $RepClass = &GetTIGRClass($Name); 
+		}
+		
+
+		#-----------------------------+
+		# TIGR GRAMINEAE REPEAT       |
+		# DATABASE                    |
+		#-----------------------------+
+		elsif ($BlastDB =~ 'gram_rep') {
+		    $HitCount++;
+		    $Name = $BlastHit->name();
+		    #$RepClass = "UNK-ZeaRepeat";
+		    $RepClass = &GetTIGRClass($Name);
+		    
+		} 
+
+		#-----------------------------+
+		# DATABASE NOT RECOGNIZED     |
+		#-----------------------------+
+		else {
+
+		    #print "ERROR. The repeat database $BlastDB is not".
+		    #	" recognized by RepMiner.\n";
+		
+		    $Name = $SubId;
+		    $RepClass = "UNK";
+		}
+
+		#-----------------------------+
+		# San Miguel Database         |
+		#-----------------------------+
+#		$Name = $SubId;
+#		($RepClass,$other) = split(/_/, $Name);
+		
+
+		#-----------------------------+
+		# WRITE OUTPUT                |
+		#-----------------------------+
+
+		my $LoadRec = "INSERT INTO ".$tblQryCat.
+		    " (qry_id, qry_cat) ".
+		    " VALUES (".
+		    " '".$QryId."',".
+		    " '".$RepClass."'".
+		    ")";
+		$dbh->do($LoadRec);
+		
+		my @tmpqry = split(/\|/, $QryId );
+		my $OutName = $tmpqry[0]; 
+		
+		# TRY TO TRACK DOWN AN ERROR
+		#print "SQL\t\t$LoadRec\n";
+		print "\t\t".$OutName."\n";
+		#print "\t\t".$RepClass."\n";
+		#print "\t\t".$Name."\n";
+		# It appears that cycoscape shows the last one that 
+		# was added to the list, and ignores earlier 
+		# classifications
+		print REPOUT $OutName."=".$RepClass."\n";
+		print REPNAME $OutName."=".$Name."\n";
+		
+	    }
+
+	    $PreQry = $CurQry;	    
+	    
+	} # End of remove newline character
+	
+    } # End of while BLASTN
+
+}
+
+sub LoadTabRepClass {
+    my $BlastDB = $_[0];
+
+    print "Defining repeat classes using tab delim blast report.\n";
+    print "The repeat blast database is:".$BlastDB."\n";
+
+    #-----------------------------+
+    # LOAD THE REPEAT             |
+    # CLASSIFICATION BLAST OUTPUT |
+    #-----------------------------+
+    my $LoadRec;
+    my $QryName;
+    my $RepClass;
+
+    my $BlastReport = new Bio::SearchIO ( '-format' => 'blasttable',
+					  '-file'   => $RepBLAST,
+					  '-signif' => $MaxE,
+					  '-min_query_len' => $MinQryLen,
+					  '-score' => $MinScore ) ||
+    die "Could not open BLAST input file:\n$RepBLAST.\n";
+
+    #$BlastDB = $BlastResult->database_name;
+
+    while ($BlastResult = $BlastReport->next_result())
+    {
+	$QryName = $BlastResult->query_name;
+
+	#print "Rep Search".$QryName.":".$BlastDB."\n";
+
+	my $NumHits = $BlastResult->num_hits;
+	my $HitCount = "0";
+
+	while ( $BlastHit = $BlastResult->next_hit())
+	{
+
+	    #-----------------------------+
+	    # TREP REPEAT DATABASE        |
+	    #-----------------------------+
+	    if ($BlastDB =~ 'TREP_8' ||
+		$BlastDB =~ 'TREP_9')
+	    {
+		$HitCount++;
+
+		my $HitId = $BlastHit->accession()  || "UnkAcc";
+
+		$RepClass = &GetTREPClass($HitId);
+		$Name = &GetTREPName($HitId);
+
+		# Don't show output on quiet runs
+		if (! $quiet)
+		{
+		    print $QryName."\n";
+		    print "\t".$HitId.":".$Name."\n";
+		    print "\t".$RepClass."\n";
+		}
+
+	    }
+
+	    #-----------------------------+
+	    # REPBASE PLANTS              |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'RB_pln')
+	    {
+
+		$HitCount++;
+		$Class = "UNK";
+		$Subclass = "UNK";
+		$Superfamily = "UNK";
+		$Name = $BlastHit->name();
+		
+		my @SpName = (split /\#/, $Name);
+		my $CatSearch = trim($SpName[1] || "NONE");
+		
+		$RepClass = &GetRBClass($CatSearch); 
+
+	    }
+
+	    #-----------------------------+
+	    # MIPS DATABASE               |
+	    # This follows the RepBASE    |
+	    # foramt.                     |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'mips_REdat_4_3' || 
+		   $BlastDB =~ 'mips')
+	    {
+
+		$HitCount++;
+		$Class = "UNK";
+		$Subclass = "UNK";
+		$Superfamily = "UNK";
+		$Name = $BlastHit->name();
+		
+		my @SpName = (split /\#/, $Name);
+		my $CatSearch = trim($SpName[1] || "NONE");
+		
+		$RepClass = &GetRBClass($CatSearch); 
+
+		# Show what class is currently being read
+		if (! $quiet)
+		{
+		    print "MIPS Name:\t".$Name."\n";
+		}
+		
+	    }
+
+	    #-----------------------------+
+	    # TIGR ORYZA REPEAT DATABASE  |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'os_rep')
+	    {
+		$HitCount++;
+		$Name = $BlastHit->name();
+		$RepClass = &GetTIGRClass($Name);
+	    }
+
+
+	    #-----------------------------+
+	    # TIGR BRASSICACEAE REPEATS   |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'TIGRbras')
+	    {
+		$HitCount++;
+		$Name = $BlastHit->name();
+		$RepClass = &GetTIGRClass($Name);
+	    }
+
+	    #-----------------------------+
+	    # TIGR FABACEAE REPEATS       |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'TIGRfab')
+	    {
+		$HitCount++;
+		$Name = $BlastHit->name();
+		$RepClass = &GetTIGRClass($Name);
+	    }
+
+	    #-----------------------------+
+	    # TIGR SOLANACEAE REPEATS     |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'TIGRsol')
+	    {
+		$HitCount++;
+		$Name = $BlastHit->name();
+		$RepClass = &GetTIGRClass($Name);
+	    }
+
+	    #-----------------------------+
+	    # WESSLER LAB REPEAT DATABASE |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'Wessler')
+	    {
+		$HitCount++;
+		my $WesName = $BlastHit->name();
+		my @SpName = (split /\#/, $WesName);
+		$Name = $SpName[0];
+		
+		my $WesClass = $SpName[1];
+		
+		my $Desc = $BlastHit->description();
+		$RepClass = &GetWesClass($WesClass);
+
+		# DEBUG PRINT
+		# Not printed on 'quiet' runs
+		if (! $quiet)
+		{
+		    if ($RepClass  =~ "UNK")
+		    {
+			print $Name."\n";
+			print "\t".$WesClass."\n";
+			print "\t".$RepClass."\n";
+		    }
+		} # End of not quiet
+	    }
+
+	    #-----------------------------+
+	    # SAN MIGUEL REPEAT DATABASE  |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'SanMiguel')
+	    {
+		$HitCount++;
+		$Name = $BlastHit->name();
+		# Add code to simply name here to the string
+		# to the left of the underscore _
+		#$Name 
+		# Using the short name 'family' as
+		# the current RepClass although that
+		# is not really correct
+
+		# The following did not split
+#		my @SplitName = split(/_/, $Name ) ||
+#		    die "Could not split Hit Name: $Name";
+#		my $SplitLen = @SplitName;
+#		print "LEN:".$SplitLen."\n";
+#		$RepClass = $SplitName[0];
+
+		my $other;
+		($RepClass,$other) = split(/_/, $Name);
+
+
+#	    my @tmphitid = split(/\|/, $SubId ) ||
+#		die "Could not split SbjID";
+#	    $YCrd = $tmphitid[0];
+
+
+		#f (! $quiet)
+		#
+		#   #print $QryName."\n";
+		#   print "SanMig Name:\t".$Name."\n";
+		#   print "SanMig Class:\t".$RepClass."\n";
+		#
+
+	    }
+
+	    #-----------------------------+
+	    # TIGR ZEA MAYS REPEAT        |
+	    # DATABASE                    |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'zm_rep')
+	    {
+		$HitCount++;
+		$Name = $BlastHit->name();
+		$RepClass = &GetTIGRClass($Name); 
+	    }
+
+	    #-----------------------------+
+	    # TIGR GRAMINEAE REPEAT       |
+	    # DATABASE                    |
+	    #-----------------------------+
+	    elsif ($BlastDB =~ 'gram_rep')
+	    {
+		$HitCount++;
+		$Name = $BlastHit->name();
+		#$RepClass = "UNK-ZeaRepeat";
+		$RepClass = &GetTIGRClass($Name);
+		
+	    } else {
+		#-----------------------------+
+		# DATABASE NOT RECOGNIZED     |
+		#-----------------------------+
+		print "ERROR. The repeat database $BlastDB is not".
+		    " recognized by RepMiner.\n";
+	    }
+
+
+	    # CURRENTLY WILL ONLY LOAD THE BEST HIT INTO
+	    # THE DATABASE FOR A NICE QUICK AND DIRTY
+	    # ATTEMPT TO GET THIS TO WORK
+	    if ($HitCount == "1")
+	    {
+
+		# Can do the HSP parse here if only wanted for the 
+		# first hit.
+
+		# Check to see if a classification already exists for
+		# for this record. As it stands now, the later qry_cats
+		# will overwrite the newer qry cats.
+
+		# Can change the load record only record the classification
+
+		$LoadRec = "INSERT INTO ".$tblQryCat.
+		    " (qry_id, qry_cat) ".
+		    " VALUES (".
+		    " '".$QryName."',".
+		    " '".$RepClass."'".
+		    ")";
+		$dbh->do($LoadRec);
+
+		my @tmpqry = split(/\|/, $QryName );
+		my $OutName = $tmpqry[0]; 
+
+		# TRY TO TRACK DOWN AN ERROR
+		print "SQL\t\t$LoadRec\n";
+		print "\t\t".$OutName."\n";
+		print "\t\t".$RepClass."\n";
+		print "\t\t".$Name."\n";
+		# It appears that cycoscape shows the last one that 
+		# was added to the list, and ignores earlier 
+		# classifications
+		print REPOUT $OutName."=".$RepClass."\n";
+		print REPNAME $OutName."=".$Name."\n";
+
+	    } # End of if HitCount ==1
+
+	} # End of while BlastResult-next_hit
+
+    } # End of while BlastReport next_result
+
+}
 
