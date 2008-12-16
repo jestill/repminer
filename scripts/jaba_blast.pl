@@ -1,4 +1,4 @@
-#!/Usr/bin/perl -w
+#!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
 # jaba_blast.pl - Parse All by All blast results            |
