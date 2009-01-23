@@ -147,6 +147,9 @@ while (<SIMIN>) {
     chomp;
     my ($x,$y,$val) = split;
 
+    # Cytoscape only seems to play will with integers
+    $val = int($val);
+
     #-----------------------------+
     # UNDIRECTED x < y            |
     #-----------------------------+
