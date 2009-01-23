@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# Name.pl                                                   |
+# Name.pl - what it does                                    |
 #                                                           |
 #-----------------------------------------------------------+
 #                                                           |
@@ -14,7 +14,7 @@
 #  Short Program Description                                |
 #                                                           |
 # USAGE:                                                    |
-#  ShortFasta Infile.fasta Outfile.fasta                    |
+#  progname -i infile -o outfile.fasta                      |
 #                                                           |
 # VERSION: $Rev$                                            |
 #                                                           |
@@ -80,9 +80,6 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 #-----------------------------+
 
 
-#-----------------------------+
-# MAIN PROGRAM BODY           |
-#-----------------------------+
 if ( ($show_usage) ) {
 #    print_help ("usage", File::Spec->rel2abs($0) );
     print_help ("usage", $0 );
@@ -104,6 +101,16 @@ if ($show_version) {
 	"Version: $VERSION\n\n";
     exit;
 }
+
+#-----------------------------+
+# FILE IO                     |
+#-----------------------------+
+
+
+#-----------------------------+
+# MAIN PROGRAM BODY           |
+#-----------------------------+
+
 
 exit 0;
 
@@ -187,8 +194,11 @@ This documentation refers to program version 0.1
 
 =head1 SYNOPSIS
 
-  USAGE:
+=head2 Usage
+
     Name.pl -i InFile -o OutFile
+
+=head2 Required Arguments
 
     --infile        # Path to the input file
     --outfie        # Path to the output file
@@ -197,9 +207,7 @@ This documentation refers to program version 0.1
 
 This is what the program does
 
-=head1 COMMAND LINE ARGUMENTS
-
-=head2 Required Arguments
+=head1 REQUIRED ARGUMENTS
 
 =over 2
 
@@ -213,7 +221,7 @@ Path of the output file.
 
 =back
 
-=head1 Additional Options
+=head1 OPTIONS
 
 =over 2
 
@@ -234,11 +242,15 @@ Show program version.
 Show the full program manual. This uses the perldoc command to print the 
 POD documentation for the program.
 
-=item -q,--quiet
-
-Run the program with minimal output.
-
 =back
+
+=head1 EXAMPLES
+
+=head2 Typical Use
+
+The typical use for this program is to convert from x to y.
+
+ progname.pl -i infile -o outfile
 
 =head1 DIAGNOSTICS
 
@@ -256,7 +268,17 @@ or properties that can be set.
 
 =head1 DEPENDENCIES
 
-Other modules or software that the program is dependent on.
+=head2 Required Software
+
+=head2 Required Perl Modules
+
+=over 2
+
+=item * Getopt::Long
+
+This module is required to accept options at the command line.
+
+=back
 
 =head1 BUGS AND LIMITATIONS
 
@@ -264,13 +286,24 @@ Any known bugs and limitations will be listed here.
 
 =head1 LICENSE
 
-GNU General Public License, Version 3
+GNU GENERAL PUBLIC LICENSE, VERSION 3
 
-L<http://www.gnu.org/licenses/gpl.html>
+http://www.gnu.org/licenses/gpl.html
+
+THIS SOFTWARE COMES AS IS, WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY. USE AT YOUR OWN RISK.
 
 =head1 AUTHOR
 
 James C. Estill E<lt>JamesEstill at gmail.comE<gt>
+
+=head1 CITATION
+
+A manuscript is in preparation describing this software. Currently you 
+should cite the repminer website:
+
+  JC Estill, RS Baucom and JL Bennetzen. 2008. RepMiner. 
+  http://repminer.sourceforge.net
 
 =head1 HISTORY
 
