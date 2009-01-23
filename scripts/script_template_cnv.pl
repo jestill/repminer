@@ -302,8 +302,8 @@ James C. Estill E<lt>JamesEstill at gmail.comE<gt>
 A manuscript is in preparation describing this software. Currently you 
 should cite the repminer website:
 
-  JC Estill, RS Baucom and JL Bennetzen. 2008. RepMiner. 
-  http://repminer.sourceforge.net
+   JC Estill, RS Baucom and JL Bennetzen. 2008. RepMiner.
+   http://repminer.sourceforge.net
 
 =head1 HISTORY
 
