@@ -63,6 +63,7 @@ my $do_test = 0;                  # Run the program in test mode
 my $graph_dir = "0";
 my $rel = "sim";                  # Relationship type
 my $ea_file;
+my $do_int;                       # Make all sim values integers
 
 #-----------------------------+
 # COMMAND LINE OPTIONS        |
@@ -77,6 +78,7 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "r|relate=s"    => \$rel,
 		    "d|direction=s" => \$graph_dir, # Graph direction
 		    "e|ea=s"        => \$ea_file,   # Edge attribute 
+		    "int"           => \$do_int,    # Make sim vals integers
 		    # ADDITIONAL INFORMATION
 		    "usage"       => \$show_usage,
 		    "test"        => \$do_test,
@@ -148,7 +150,7 @@ while (<SIMIN>) {
     my ($x,$y,$val) = split;
 
     # Cytoscape only seems to play will with integers
-    $val = int($val);
+    $val = int($val) if $do_int;
 
     #-----------------------------+
     # UNDIRECTED x < y            |
@@ -422,6 +424,11 @@ This ea file will give the values in the similarity matrix.
 More information on the Cytsocape edge attribute file format is 
 available at:
 http://cytoscape.org/cgi-bin/moin.cgi/Cytoscape_User_Manual/Attributes
+
+=item --int
+
+Make all the similarity values integers. This is usefull for bitscores or other
+values where a mix of integers and real values will crash cytoscape.
 
 =item -d,--direction
 
