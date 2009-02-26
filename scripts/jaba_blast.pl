@@ -213,7 +213,7 @@ my $ok = GetOptions(# REQUIRED VARIABLES
 		    "class-len=s"    => \$class_min_len,
 		    "class-score=s"  => \$class_min_score,
 		    "class-maxe=s"   => \$class_max_signif,
-		    "class-db=s"     => \$RepBlastDb,
+		    "r|class-db=s"   => \$RepBlastDb,
 		    "class-format=s" => \$class_format,
                     # DATABASE OPTIONS
 		    "a=s"            => \$tblAllByAll,
