@@ -209,11 +209,11 @@ my $ok = GetOptions(# REQUIRED VARIABLES
 		    "s|score=s"      => \$aba_min_score,
 		    "e|maxe=s"       => \$aba_max_signif,
 		    # CLASSIFICATION BLAST VARS
-		    "class-blast=s"  => \$RepBLAST,
-		    "class-len=s"    => \$class_min_len,
-		    "class-score=s"  => \$class_min_score,
-		    "class-maxe=s"   => \$class_max_signif,
-		    "r|class-db=s"   => \$RepBlastDb,
+		    "r|class-blast=s" => \$RepBLAST,
+		    "class-len=s"     => \$class_min_len,
+		    "class-score=s"   => \$class_min_score,
+		    "class-maxe=s"    => \$class_max_signif,
+		    "class-db=s"      => \$RepBlastDb,
 		    "class-format=s" => \$class_format,
                     # DATABASE OPTIONS
 		    "a=s"            => \$tblAllByAll,
