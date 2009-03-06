@@ -16,7 +16,7 @@
 # USAGE:                                                    |
 #  progname -i infile -o outfile.fasta                      |
 #                                                           |
-# VERSION: $Rev$                                            |
+# VERSION: $Rev$                                      |
 #                                                           |
 #                                                           |
 # LICENSE:                                                  |
@@ -305,7 +305,7 @@ will attempt to read input from standard input.
 
 =item -o,--outfile
 
-Path of the output file. If an output fil path is not given, the program
+Path of the output file. If an output file path is not given, the program
 will write output to standard output.
 
 =back
