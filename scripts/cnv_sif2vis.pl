@@ -8,7 +8,7 @@
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: JamesEstill_@_gmail.com                          |
 # STARTED: 05/29/2008                                       |
-# UPDATED: 05/29/2008                                       |
+# UPDATED: 05/04/2009                                       |
 #                                                           |
 # DESCRIPTION:                                              |
 #  Convert SIF format files for Cytoscape to the VisANT     |
@@ -18,7 +18,6 @@
 #  cnv_sif2vis.pl -i infile.sif -o outfile.txt              |
 #                                                           |
 # VERSION: $Rev$                                            |
-#                                                           |
 #                                                           |
 # LICENSE:                                                  |
 #  GNU General Public License, Version 3                    |
@@ -94,11 +93,25 @@ if ($show_man) {
 #-----------------------------+
 # OPEN THE I/O FILES          |
 #-----------------------------+
-open (SIFIN, "<$infile" ) ||
-    die "Can not open the sif input file $infile\n";
+# STDIN and STDOUT as defaults
+if ($infile) {
+    open (SIFIN, "<$infile" ) ||
+	die "Can not open the sif input file $infile\n";
+}
+else {
+    print STDERR "Expecting input from STDIN\n";
+    open (SIFIN, "<&STDIN") ||
+	die "Can not accept input from STDIN.";
+}
 
-open (VISOUT, ">$outfile") ||
-    die "Can not open the Visant output file $outfile\n";
+if ($outfile) {
+    open (VISOUT, ">$outfile") ||
+	die "Can not open the Visant output file $outfile\n";
+}
+else {
+    open (VISOUT, ">&STDOUT") ||
+	die "Can not print output to STDOUT\n";
+}
 
 #-----------------------------+
 # MAIN PROGRAM BODY           |
@@ -186,11 +199,13 @@ This is what the program does
 
 =item -i,--infile
 
-Path of the input file.
+Path of the input file. If an input file is not specified, the program
+will expect intput from STDIN.
 
 =item -o,--outfile
 
-Path of the output file.
+Path of the output file. If an output file path is not specified, the program
+will print output to STDOUT.
 
 =back
 
@@ -223,11 +238,17 @@ Run the program with minimal output.
 
 =head1 DIAGNOSTICS
 
-The list of error messages that can be generated,
-explanation of the problem
-one or more causes
-suggested remedies
-list exit status associated with each error
+The following messages are associated with this program.
+
+=over 2
+
+=item Expecting input from STDIN
+
+If you did not specify and input file with the -i or --infile option, the
+program will expect that input will be coming from STDIN. The use of
+STDIN will allow the program to be used as part of an analysis pipeline.
+
+=back
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
@@ -237,7 +258,26 @@ or properties that can be set.
 
 =head1 DEPENDENCIES
 
-Other modules or software that the program is dependent on.
+=head 2 Required Software
+
+Although this conversion program does not rely on external software, the output
+is desiged to convert Cytoscape format files to the VISant format files.
+
+=over 2
+
+=item Cytoscape
+
+Cytoscape is a network visualization program that is available at
+http://www.cytoscape.org/.
+
+=item VisANT
+
+The VisANT program is a network drawing program available at
+http://visant.bu.edu/. VisANT can be downloaded to run locally using a local
+installation of java, or can be run as a java web start program from the
+VisANT web page.
+
+=back
 
 =head1 BUGS AND LIMITATIONS
 
@@ -255,9 +295,9 @@ James C. Estill E<lt>JamesEstill at gmail.comE<gt>
 
 =head1 HISTORY
 
-STARTED:
+STARTED: 05/29/2008
 
-UPDATED:
+UPDATED: 05/04/2009
 
 VERSION: $Rev$
 
@@ -267,3 +307,5 @@ VERSION: $Rev$
 # HISTORY                                                   |
 #-----------------------------------------------------------+
 #
+# 05/04/2009
+# - Added input from STDIN and output to STDOUT
