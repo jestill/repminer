@@ -1,62 +1,278 @@
+#!/usr/bin/r
 #-----------------------------------------------------------+
 # bin_dates.r - classify insertion dates into bins          |
 #-----------------------------------------------------------+
-# AUTHOR: James C. Estill                                   |
+#  AUTHOR: James C. Estill                                  |
 # STARTED: 06/19/2008                                       |
-# UPDATED: 06/24/2008                                       |
+# UPDATED: 05/07/2009                                       |
+# VERSION: $Rev$                                            |
 #-----------------------------------------------------------+
-# TO DO: - WRITE THIS AS A FUNCTION THAT TAKES AN ARRAY OR
-#          Function should take two column matrix and name as
-#          seqData (twoCols, [[1]] is the seq_id, [[2]] variable value)
-#        - Make a key with data cut offs
+#
+# DESCRIPTION:
+#  Draws a histogram and emprical cumulative distribution
+#  function with color classificaiton along the x-axis.
+#  The text files that are produces allow this color data
+#  to be used on classified objects in Cytoscape. This
+#  script is written to accept variables from the command
+#  line and can therefore be used from a perl program.
+#
+# AVAILABLE ARGS (default vals) - [options]:
+#  --infile      Path to the intput file, expects a header in input file (STDIN)
+#  --outdir      Path to the outfile that is produced (STDOUT)
+#  --name        The base name to name the oufiles with
+#  --num-class   The number of classes to generate (10)
+#  --num-breaks  The number of breaks to draw in the histogram (200)
+#  --class       The classification method to use (kmeans):
+#                [quantile | bagged | kmeans | equal_interval | pam ]
+#  --height      Height of the that is created
+#  --width       Width of the image that is created
+#  --title       Title of the graph
+#  
+# BOOLEANS
+#  --plot        Draw the plot
+#  --inv-color   Invert the color (Red Smaller Number, Blue Larger Number)
+#  --verbose     Run the script in verbose mode
+#
+#
+# EXAMPLE USE:
+# R < bin_dates_fun.r --no-save --slave
+# R < bin_dates_fun.r --no-save --slave --args --name dude
+# R < bin_dates_fun.r --no-save --slave --args --num-class 20 --num-breaks 100 --infile test_insertion_date.txt --outdir test --verbose --plot --inv-color
+#R < bin_dates_fun.r --no-save --slave --args --infile test_insertion_date.txt --outdir test2 --plot --title "Monkey underpants weight" --verbose --labelx today --max-x 5000000 --min-x 200000
 
 # Remove existing objects
+# This may be a terrible idea in some circumstances
+
 rm(list=ls(all=TRUE));
 
 #-----------------------------+
 # LOAD LIBRARIES              |
 #-----------------------------+
-library(colorRamps);           # Get color ramps
+library('colorRamps');         # Get color ramps
+
+#-----------------------------------------------------------+
+# GET ARGS FROM THE COMMAND LINE                            |
+#-----------------------------------------------------------+
 
 #-----------------------------+
-# VARS TO CHANGE              |
+# GET ARGS FUNCTION           |
 #-----------------------------+
-numClass = 10;                     # The number of classes to split it into
-numBreaks = 200;                   # The number of breaks for drawing the histogram
-drawPlot = TRUE;
+# The GetArg subfunction allows for arguments to be passed
+# to the R script from the command line
+# Returns null when string not found in command lines
+GetArg <-function(strSwitch) {
+  
+  ComArgs <- commandArgs();
+  
+  numArgs <- (length(ComArgs));
+  myVar <- NULL;
+  for (i in 1:numArgs) {
+    if (ComArgs[i] == strSwitch) {
+      myVar <- ComArgs[i+1];
+    }
+  }
+  
+  GetArg <- myVar;
+
+}
+
+#-----------------------------+
+# GET BOOLEANS FUNCTION       |
+#-----------------------------+
+GetBool <- function(bolFlag) {
+  
+  BoolArgs <- commandArgs();
+  
+  bolVar <- FALSE;
+  numArgs <- (length(BoolArgs));
+  for (i in 1:numArgs) {
+    if (BoolArgs[i] == bolFlag) {
+      bolVar <- TRUE;
+    }
+  }
+  
+  GetBool <- bolVar;
+  
+}
+
+#-----------------------------+
+# BOOLEANS                    |
+#-----------------------------+
+# Draw the plot
+drawPlot <- GetBool('--plot');
+# Inverse the color ramp
+inverseColor <- GetBool('--inv-color');
+# Run script in verbose mode
+isVerbose <- GetBool('--verbose');
+
+#-----------------------------+
+# INPUT FILE                  |
+#-----------------------------+
+# If no infile given, expect input from STIN
+#inFile <- "test_insertion_date.txt";
+argInFile <- GetArg('--infile');
+if (is.null(argInFile) == FALSE) {
+  inFile <- argInFile;
+  seqData <- read.table(inFile, header=T);
+} else {
+  seqData <- read.table("/tmp/Rd.txt",TRUE);
+}
+
+#-----------------------------+
+# OUTPUT DIR                  |
+#-----------------------------+
+argOutDir <- GetArg('--outdir');
+if (is.null(argOutDir) == FALSE) {
+  outDir <- argOutDir;  
+}
+
+#-----------------------------+
+# NUMBER OF CLASSES           |
+#-----------------------------+
+# The number of classes to split it into
+numClass <- 10;
+argNumClass <- GetArg('--num-class');
+if (is.null(argNumClass) == FALSE) {
+  numClass <- as.numeric(argNumClass);
+}
+
+#-----------------------------+
+# NUMBER OF BREAKS            |
+#-----------------------------+
+# The number of breaks for drawing the histogram
+numBreaks = 200;
+argNumBreaks <- GetArg('--num-breaks');
+if (is.null(argNumBreaks) == FALSE) {
+  numBreaks <- as.numeric(argNumBreaks);
+
+}
+
+#-----------------------------+
+# CLASSIFICATION METHOD       |
+#-----------------------------+
+classMethod <- "kmeans";
+argClassMethod <- GetArg('--class');
+if (is.null(argClassMethod) == FALSE) {
+  classMethod <- argClassMethod;
+}
+
+#-----------------------------+
+# BASE NAME                   |
+#-----------------------------+
+baseName <- "class";
+argBaseName <- GetArg('--name');
+if (is.null(argBaseName) == FALSE) {
+  baseName <- argBaseName;
+}
+
+#-----------------------------+
+# PLOT HEIGHT                 |
+#-----------------------------+
+plotHeight <- 600;
+argPlotHeight <- GetArg('--height');
+if (is.null(argPlotHeight)==FALSE) {
+  plotHeight <- as.numeric(argPlotHeight);
+}
+
+#-----------------------------+
+# PLOT WIDTH                  |
+#-----------------------------+
+plotWidth <- 800;
+argPlotWidth <- GetArg('--width');
+if (is.null(argPlotWidth)==FALSE) {
+  plotWidth <- as.numeric(argPlotWidth);
+}
+
+#-----------------------------+
+# PLOT TITLE                  |
+#-----------------------------+
 plotTitle = "Maize LTR Retrotransposon Insertion Date";
-plotXLabel = "Insertion Date (YA)";
-#plotMaxX = 10000000;              # A X-Axis Maximum value to use for plotting Maximum
-plotMaxX = 5000000;              # A X-Axis Maximum value to use for plotting Maximum
-#plotMinX = 0;                     # An X-Axis Minimum value used for plotting
+argPlotTitle <- GetArg('--title');
+if (is.null(argPlotTitle)==FALSE) {
+  plotTitle <- argPlotTitle;
+}
+
+#-----------------------------+
+# PLOT X-AXIS LABEL           |
+#-----------------------------+
+plotXLabel <- "Insertion Date (YA)";
+argPlotXLabel <- GetArg('--labelx')
+if (is.null(argPlotXLabel)==FALSE) {
+  plotXLabel <- argPlotXLabel;
+}
+
+#-----------------------------+
+# PLOT X-AXIS MAX             |
+#-----------------------------+
+argPlotMaxX <- GetArg('--max-x');
+if (is.null(argPlotMaxX)==FALSE) {
+  plotMaxX <- as.numeric(argPlotMaxX);
+}
+
+#-----------------------------+
+# PLOT X-AXIS MIN             |
+#-----------------------------+
+argPlotMinX <- GetArg('--min-x');
+if (is.null(argPlotMinX)==FALSE) {
+  plotMinX <- as.numeric(argPlotMinX);
+}
+
+# PRINT VAR VALUES IF VERBOSE
+if (isVerbose == TRUE) {
+  cat ("Infile Path:\t",inFile,"\n");
+  cat ("Outdir Path:\t",outDir,"\n");
+  cat ("Num Breaks:\t",numBreaks,"\n");
+  cat ("Num Classes:\t",numClass,"\n");
+  cat ("Class Method:\t",classMethod,"\n");
+  cat ("Plot Height:\t",plotHeight,"\n");
+  cat ("Plot Width:\t",plotWidth,"\n");
+  cat ("Plot Title:\t",plotTitle,"\n");
+  cat ("Plot X-Label:\t",plotXLabel,"\n");
+
+  if (exists ("plotMaxX", mode="any" )) {
+      cat ("Plot Max-x:\t",plotMaxX,"\n");
+    }
+  
+  if (exists ("plotMinX", mode="any" )) {
+    cat ("Plot Max-x:\t",plotMinX,"\n");
+  }
+      
+}
+
+
+# VARS 
 #mclSubset = "mcl_1";
 
-#classMethod = "quantile";          # quantile | bagged
-#classMethod = "bagged";          # quantile | bagged
-classMethod = "kmeans";          # quantile | bagged
-#classMethod = "equal_interval";    # equal_interval method
-#classMethod = "pam";    # equal_interval method
 
 #-----------------------------+
 # SET EXPORT PATHS            |
 #-----------------------------+
-outColFile = (paste("class_", classMethod, "_", numClass, "_rgb.txt",  sep=""));
-outHeader = (paste("class_", classMethod, "_", numClass, sep=""));
-outNAFile = (paste("class_", classMethod, "_", numClass, ".NA",  sep=""));
-outPlotImage = (paste("class_", classMethod, "_", numClass, ".png",  sep=""));
+outColFile = (paste(baseName,"_", classMethod, "_", numClass, "_rgb.txt",  sep=""));
+outNAFile = (paste(baseName,"_", classMethod, "_", numClass, ".NA",  sep=""));
+outPlotImage = (paste(baseName,"_", classMethod, "_", numClass, ".png",  sep=""));
+
+# Prepend OutDir if given
+if (exists ("outDir", mode="any" ) ) {
+
+  # Create dir if it does not exists
+  if (!file.exists(outDir)) {
+    dir.create(outDir, recursive=TRUE);
+  }
+
+  # Using file.path will create the file path in a platform independent way
+  outColFile <- file.path(outDir, outColFile);
+  outNAFile <- file.path(outDir,outNAFile);
+  outPlotImage <- file.path(outDir,outPlotImage);
+  
+}
 
 #-----------------------------+
 # COLOR PALETTE               |
 #-----------------------------+
 colRamp <- blue2red(numClass);
-#colRamp <- green2red(numClass);
-
-#-----------------------------+
-# DATA IO                     |
-#-----------------------------+
-inFile = "hq_insertion_date_for_r.txt";
-outFile = "hq_insertation_date_bin.txt";
-seqData <- read.table(inFile, header=T);
+if (inverseColor == TRUE) {
+  colRamp <- rev(colRamp);
+}
 
 #-----------------------------+
 # SUBSET THE DATA             |
@@ -104,7 +320,7 @@ if (classMethod == "bagged") {
   
   # blucst requires the e1071 package
   library(e1071);
-
+  
   # Set a random number seed
   set.seed(20080624);
 
@@ -190,6 +406,11 @@ if (classMethod == "pam" ) {
 
 if (drawPlot == TRUE ) {
 
+  png(filename=outPlotImage, height=plotHeight, width=plotWidth, bg="white");
+      
+#  dev.copy (png, filename=outPlotImage,
+#            height=plotHeight, width=plotWidth, bg="white" );
+  
   #-----------------------------+
   # GET X AXIS LIMITS           |
   #-----------------------------+
@@ -259,6 +480,7 @@ if (drawPlot == TRUE ) {
   #-----------------------------+
   # ADD LINES TO ECDF           |
   #-----------------------------+
+  # Add lines to the empirical cumulative distribution function
   xLinesLeft <- matrix (stbrks[,1], nrow = numClass, ncol=2 );
   xLinesRight <- matrix (stbrks[,2], nrow = numClass, ncol=2 );
   yLines <- matrix( c(0,1), nrow=numClass, ncol=2, byrow=TRUE);
@@ -279,6 +501,8 @@ if (drawPlot == TRUE ) {
   }
   
   par(new=F);
+
+  dev.off();
   
 } # End of if draw plot
 
@@ -299,11 +523,16 @@ classMat[,2] = cols;
 # CONVERT MATRIX TO DATA FRAME
 classFrame <- as.data.frame(classMat);
 
+#-----------------------------------------------------------+
+# WRITE OUTPUT FILES                                        |
+#-----------------------------------------------------------+
+
 #-----------------------------+
 # WRITE NA FILE FOR CYTOSCAPE |
 #-----------------------------+
 
 # WRITE THE HEADER
+outHeader = (paste(baseName,"_", classMethod, "_", numClass, sep=""));
 write ( outHeader, outNAFile, append=FALSE);
 
 # WRITE THE CLASSIFIED DATA
@@ -317,15 +546,6 @@ write.table ( classFrame ,outNAFile , sep="=",
 # First need to convert from hex to rgb and then transpose
 colRampRGB <- t(col2rgb(colRamp));
 write.table (colRampRGB,outColFile );
-
-#-----------------------------+
-# WRITE THE PLOT TO PNG FILE  |
-#-----------------------------+
-if (drawPlot == TRUE ) {
-  dev.copy (png, filename=outPlotImage,
-            height=600, width=800, bg="white" );
-  dev.off();
-}
 
 #-----------------------------------------------------------+
 # HISTORY
@@ -352,7 +572,7 @@ if (drawPlot == TRUE ) {
 #     5=longdash, 6=twodash)
 #
 # 06/24/2008
-# - Covert R color codes to rgb codes for Cytoscape
+# - Convert R color codes to rgb codes for Cytoscape
 # - Started adding pam .. too slow to work with existing dataset
 # - Added option to not draw plot
 # - Made plot labels variables
@@ -362,6 +582,15 @@ if (drawPlot == TRUE ) {
 # - Added variables for x and y limits on plot
 # - Added option to subset the data, example with mcl
 #   cluster
+#
+# 05/07/2009
+# - Added the ability to do reverse color ramp order
+# - Adding command line arguments
+#    --infile
+#    --outfile
+#    --class
+#    --num-class
+#    --num-breaks
 #-----------------------------------------------------------+
 # JUNKYARD
 #-----------------------------------------------------------+
