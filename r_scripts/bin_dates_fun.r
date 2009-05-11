@@ -1,4 +1,3 @@
-#!/usr/bin/r
 #-----------------------------------------------------------+
 # bin_dates.r - classify insertion dates into bins          |
 #-----------------------------------------------------------+
@@ -24,8 +23,8 @@
 #  --num-breaks  The number of breaks to draw in the histogram (200)
 #  --class       The classification method to use (kmeans):
 #                [quantile | bagged | kmeans | equal_interval | pam ]
-#  --height      Height of the that is created
-#  --width       Width of the image that is created
+#  --height      Height of the plot image that is created
+#  --width       Width of the plat image that is created
 #  --title       Title of the graph
 #  
 # BOOLEANS
@@ -39,7 +38,8 @@
 # R < bin_dates_fun.r --no-save --slave --args --name dude
 # R < bin_dates_fun.r --no-save --slave --args --num-class 20 --num-breaks 100 --infile test_insertion_date.txt --outdir test --verbose --plot --inv-color
 #R < bin_dates_fun.r --no-save --slave --args --infile test_insertion_date.txt --outdir test2 --plot --title "Monkey underpants weight" --verbose --labelx today --max-x 5000000 --min-x 200000
-
+# R < bin_dates_fun.r --no-save --slave --args --infile test_insertion_date.txt --outdir test3 --plot --title "monke underpants" --labelx today --max-x 5000000 --min-x 200000 --num-class 17 | grep '#'
+#
 # Remove existing objects
 # This may be a terrible idea in some circumstances
 
@@ -100,10 +100,16 @@ GetBool <- function(bolFlag) {
 #-----------------------------+
 # Draw the plot
 drawPlot <- GetBool('--plot');
-# Inverse the color ramp
+# Inverse the color ramp, useful for ages where younger is 'hotter'
+# alternative is to use neg values for age
 inverseColor <- GetBool('--inv-color');
 # Run script in verbose mode
 isVerbose <- GetBool('--verbose');
+
+#-----------------------------+
+# TURN WARNINGS OFF           |
+#-----------------------------+
+#suppressWarnings();
 
 #-----------------------------+
 # INPUT FILE                  |
@@ -404,13 +410,15 @@ if (classMethod == "pam" ) {
 #-----------------------------------------------------------+
 # Changing these to use the min value and max value for limits
 
+
 if (drawPlot == TRUE ) {
 
   png(filename=outPlotImage, height=plotHeight, width=plotWidth, bg="white");
       
 #  dev.copy (png, filename=outPlotImage,
 #            height=plotHeight, width=plotWidth, bg="white" );
-  
+
+
   #-----------------------------+
   # GET X AXIS LIMITS           |
   #-----------------------------+
@@ -453,7 +461,13 @@ if (drawPlot == TRUE ) {
   plot.ecdf(seqData[[2]], verticals=TRUE , cex=0.1, 
             main = "", xlab=plotXLabel,
             ylim=c(-0.2,1), xlim=c(plotMinX,plotMaxX), sub = subText );
-  rug(seqData[[2]]);
+
+  # Supress warnings about clipping unless verbose
+  if (isVerbose == TRUE) {
+    rug(seqData[[2]]);
+  } else {
+    suppressWarnings ( rug(seqData[[2]]) );
+  }
   
   #-----------------------------+
   # ADD COLOR CLASS BOXES       |
@@ -472,9 +486,8 @@ if (drawPlot == TRUE ) {
     recVals[i,1] =  stbrks[i,2]- stbrks[i,1];
   }
 
-  # DRAW BOXES
   symbols ( xVal, yVal, rectangles = recVals, fg=colRamp , bg=colRamp,
-           axes = FALSE, xlab="",ylab="", inches=FALSE,
+           xlab="",ylab="", inches=FALSE,
            ylim=c(-0.2,1), xlim=c(plotMinX,plotMaxX) );
 
   #-----------------------------+
@@ -499,16 +512,16 @@ if (drawPlot == TRUE ) {
            col = "gray", lty=3);
     
   }
-  
+    
   par(new=F);
 
-  dev.off();
   
 } # End of if draw plot
 
 #-----------------------------------------------------------+
 # EXPORT THE CLASSIFIED DATA                                |
 #-----------------------------------------------------------+
+
 
 #-----------------------------+
 # CREATE OUT MATRIX           |
@@ -528,9 +541,23 @@ classFrame <- as.data.frame(classMat);
 #-----------------------------------------------------------+
 
 #-----------------------------+
-# WRITE NA FILE FOR CYTOSCAPE |
+# STDOUT - Classified DATA    |
 #-----------------------------+
 
+# The following prints the ranges of values for each class
+# Preceding this with # allows this to be parsed separately or ignored
+for (i in 1:numClass) {
+  cat ("#",i,"\t",stbrks[i,1], "-", stbrks[i,2], "\n");
+}
+
+write.table ( classFrame ,file="" , sep="\t",
+             quote=FALSE, row.names=FALSE,
+             col.names=FALSE, append=TRUE);
+
+
+#-----------------------------+
+# WRITE NA FILE FOR CYTOSCAPE |
+#-----------------------------+
 # WRITE THE HEADER
 outHeader = (paste(baseName,"_", classMethod, "_", numClass, sep=""));
 write ( outHeader, outNAFile, append=FALSE);
@@ -591,6 +618,9 @@ write.table (colRampRGB,outColFile );
 #    --class
 #    --num-class
 #    --num-breaks
-#-----------------------------------------------------------+
-# JUNKYARD
-#-----------------------------------------------------------+
+#
+# 05/08/2009
+#  - Fixed bugs producing warning messages
+#
+# 05/11/2009
+#  - Added printing of classification results and ranges to STDOUT
