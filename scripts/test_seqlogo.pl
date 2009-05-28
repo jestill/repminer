@@ -11,8 +11,8 @@
 # UPDATED: 05/08/2009                                       |
 #                                                           |
 # DESCRIPTION:                                              |
-#  Test running the seq logo program for groups of sequence
-#  data that have been
+#  Test running the seq logo program for groups of sequence |
+#  data that have been extraced from a sequence database.   |
 #                                                           |
 # USAGE:                                                    |
 #  test_seqlogo.pl -i infile -o outfile.png                 |
@@ -25,6 +25,7 @@
 #  http://www.gnu.org/licenses/gpl.html                     |  
 #                                                           |
 #-----------------------------------------------------------+
+#
 
 package REPMINER;
 
@@ -94,7 +95,7 @@ if ($show_man) {
 # MAIN PROGRAM BODY           |
 #-----------------------------+
 # Goal is to run the seq logo program
-# Assume seqlogo in paht
+# Assume seqlogo in path
 my $seqlogo_bin = "/home/jestill/apps/weblogo/seqlogo";
 
 # For full seqs do below
