@@ -113,7 +113,8 @@ while (<DIVIN>) {
 
 
     # Add choice for coverage or richness here
-    if ($out_val = "rich") {
+    if ($out_val =~ "rich") {
+
 	for my $ind_val (@div_vals) {
 	    # Only process numbers
 	    if ($ind_val =~ m/^[\d]*$/ ) {
@@ -122,8 +123,18 @@ while (<DIVIN>) {
 		}
 	    }
 	}
+
     }
-    elsif ($out_val = "cover") {
+    elsif ($out_val =~ "cover") {
+
+	for my $ind_val (@div_vals) {
+	    # Only process numbers
+	    if ($ind_val =~ m/^[\d]*$/ ) {
+		if ( int($ind_val) > 0 ) {
+		    $div_score = $div_score + $ind_val;
+		}
+	    }
+	}
 
     }
 
@@ -155,7 +166,6 @@ while (<DIVIN>) {
     print GFFOUT "$gff_out";
 
 }
-
 
 #-----------------------------+
 # CLOSE FILE HANDLES          |
