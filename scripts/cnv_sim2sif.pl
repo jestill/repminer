@@ -17,7 +17,7 @@
 # USAGE:                                                    |
 #  cnv_sim2sif.pl -i infile.sim -o outfile.sif              |
 #                                                           |
-# VERSION: $Rev$                                            |
+# VERSION: $Rev$                                      |
 #                                                           |
 # LICENSE:                                                  |
 #  GNU General Public License, Version 3                    |
