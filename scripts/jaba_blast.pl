@@ -1196,7 +1196,7 @@ sub ParseBLAST2Graph {
 		# The use of bot ensures that the x < y is treated as 
 		# different information then x > y.
 
-		if ($XCrd <= $YCrd) {
+		if ($XCrd < $YCrd) {
 
 		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
 
@@ -1208,6 +1208,23 @@ sub ParseBLAST2Graph {
 		    print BITOUT $XCrd." (bl) ".$YCrd." = ".
 			$blast_hit->bits()."\n";
 		    print SIGOUT $XCrd." (bl) ".$YCrd." = ".
+			$blast_hit->significance()."\n";
+
+		} # End of if XCrd > YCrd
+
+
+		if ($XCrd == $YCrd) {
+
+		    print STDERR $XCrd."-->".$YCrd."\n" if $verbose;
+
+		    # GRAPH OBJECT
+		    $g->add_edge($XCrd, $YCrd);
+
+		    # CYTOSCAPE FILES
+		    print SIFOUT $XCrd."\tself\t".$YCrd."\n";
+		    print BITOUT $XCrd." (self) ".$YCrd." = ".
+			$blast_hit->bits()."\n";
+		    print SIGOUT $XCrd." (self) ".$YCrd." = ".
 			$blast_hit->significance()."\n";
 
 		} # End of if XCrd > YCrd
@@ -3171,6 +3188,11 @@ VERSION: $Rev$
 # - Added filsters for qry_len, significance and score to
 #   the search_io options for the all-by-all search as
 #   well as the classification search.
+# 01/07/2009
+# - labeled self edges as self for direction 5
+#   this will be helpful in cytoscape to set self edges to
+#   invisible if desired
+#
 #-----------------------------------------------------------+
 # TODO                                                      |
 #-----------------------------------------------------------+
