@@ -79,7 +79,7 @@ my ($VERSION) = q$Rev$ =~ /(\d+)/;
 #-----------------------------+
 my $infile;
 my $outfile;
-my $blast_opt = 2;             # BLAST option, how to parse blast
+#my $blast_opt = 2;             # BLAST option, how to parse blast
                                # Use numbers for now
                                # 1 --> Bitscore of Best HSP from -m8 BLAST
                                # 2 --> Bitscore of Tiled HSPs from -m8 BLAST
@@ -92,7 +92,7 @@ my $show_usage = 0;
 my $show_version = 0;
 my $show_man = 0;
 my $show_help = 0; 
-my $blast_opt = 0;
+my $blast_opt = "0";
 
 # Index Vals
 my $pre_cat_id ="0";
