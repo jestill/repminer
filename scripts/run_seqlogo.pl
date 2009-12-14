@@ -8,7 +8,7 @@
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: JamesEstill_@_gmail.com                          |
 # STARTED: 05/08/2009                                       |
-# UPDATED: 05/08/2009                                       |
+# UPDATED: 05/29/2009                                       |
 #                                                           |
 # DESCRIPTION:                                              |
 #  Test running the seq logo program for groups of sequence |
@@ -25,15 +25,15 @@
 #  http://www.gnu.org/licenses/gpl.html                     |  
 #                                                           |
 #-----------------------------------------------------------+
-#
 
 package REPMINER;
 
 #-----------------------------+
 # INCLUDES                    |
 #-----------------------------+
-use strict;
-use Getopt::Long;
+use strict;                    # Play fair
+use Getopt::Long;              # Get options from the command line
+use DBI;                       # For connecting to MySQL database
 
 #-----------------------------+
 # PROGRAM VARIABLES           |
@@ -43,8 +43,8 @@ my ($VERSION) = q$Rev$ =~ /(\d+)/;
 #-----------------------------+
 # VARIABLE SCOPE              |
 #-----------------------------+
-my $infile;
-my $outfile;
+my $in_option ="-";               # This specifies input from STDIN
+my $out_option = "-";             # This specified output to STDOUT
 
 # Booleans
 my $quiet = 0;
@@ -54,20 +54,42 @@ my $show_usage = 0;
 my $show_man = 0;
 my $show_version = 0;
 
+# VARIABLES THAT CAN BE CHANGED WITH
+# COMMAND LINE OPTIONS
+# Assume seqlogo in path
+my $seqlogo_bin = $ENV{SEQLOGO_BIN} || "seqlogo";
+my $seqlogo_title = "SeqLogo Result";
+my $seqlogo_start = "-26";            # 26 derived from LTR_struc output
+my $seqlogo_width = "18";
+my $seqlogo_height = "5";
+my $do_significant = 0;
+my $show_all = 0;
+my $x_axis_label = "BP From Insertion Site";
+
+my @logo_files_in;
+
 #-----------------------------+
 # COMMAND LINE OPTIONS        |
 #-----------------------------+
-my $ok = GetOptions(# REQUIRED OPTIONS
-		    "i|infile=s"  => \$infile,
-                    "o|outfile=s" => \$outfile,
+my $ok = GetOptions(# REQUIRED ARGUMENTS
+		    "i|infile|indir=s"   => \$in_option,
+                    "o|outfile|outdir=s" => \$out_option,
+		    # SEQLOGO OPTIONS
+		    "title=s"            => \$seqlogo_title,
+		    "seqlogo-bin=s"      => \$seqlogo_bin,
+		    "start=s"            => \$seqlogo_start,
+		    "height=s"           => \$seqlogo_height,
+		    "width=s"            => \$seqlogo_width,
+		    "show-all"           => \$show_all,
+		    "x-label"            => \$x_axis_label,
 		    # ADDITIONAL OPTIONS
-		    "q|quiet"     => \$quiet,
-		    "verbose"     => \$verbose,
+		    "q|quiet"            => \$quiet,
+		    "verbose"            => \$verbose,
 		    # ADDITIONAL INFORMATION
-		    "usage"       => \$show_usage,
-		    "version"     => \$show_version,
-		    "man"         => \$show_man,
-		    "h|help"      => \$show_help,);
+		    "usage"              => \$show_usage,
+		    "version"            => \$show_version,
+		    "man"                => \$show_man,
+		    "h|help"             => \$show_help,);
 
 #-----------------------------+
 # SHOW REQUESTED HELP         |
@@ -92,26 +114,102 @@ if ($show_man) {
 }
 
 #-----------------------------+
-# MAIN PROGRAM BODY           |
+# LOAD INPUT FILES TO ARRAY   |
 #-----------------------------+
-# Goal is to run the seq logo program
-# Assume seqlogo in path
-my $seqlogo_bin = "/home/jestill/apps/weblogo/seqlogo";
+my $indir;
+# INPUT IS A FILE
+if (-f $in_option) {
+    push (@logo_files_in, $in_option);
+}
+# INPUT IS A FOLDER
+elsif (-d $in_option) {
+    opendir( DIR, $in_option ) || 
+	die "Can't open directory:\n$in_option"; 
+    @logo_files_in = grep /\.txt$|\.text$/, readdir DIR ;
+    closedir( DIR );
+    $indir = $in_option;
 
-# For full seqs do below
-#my $seqlogo_cmd = "$seqlogo_bin".
-#    " -f $infile".
-#    " -o $outfile".
-#    "  -F PNG -c -b -a -w 18 -h 5 -n -s \"-26\" -Y -k 1 -t Ji -S";
-##./seqlogo -f ji_test.txt -o test_ji -F PNG -c -b -a -w 18 -h 5 -n -s "-26" -Y -k 1 -t Ji -S
-#print "CMD: $seqlogo_cmd\n" if $verbose;
+    unless ($indir =~ /\/$/ ) {
+	$indir = $indir."/";
+    }
 
-# for significant do below
-my $seqlogo_cmd = "$seqlogo_bin".
-    " -f $infile".
-    " -o $outfile".
-    "  -F PNG -c -b -a -w 18 -h 5 -n -s \"-26\" -Y -k 1 -t Ji";
-system($seqlogo_cmd);
+}
+else {
+    die "The intput does not appear to bea file or directory";
+}
+
+#-----------------------------+
+# DEAL WITH OUTPUT OPTIONS    |
+#-----------------------------+
+my $outdir = $out_option;
+unless ($outdir =~ /\/$/ ) {
+    $outdir = $outdir."/";
+}
+
+unless (-e $outdir) {
+    print "creating dir: $outdir\n";
+    mkdir $outdir ||
+	die "Could not creat the output dir:\n$outdir\n";
+}
+
+#-----------------------------+
+# ITERATE THROUGH EACH FILE   |
+# IN THE ARRAY                |
+#-----------------------------+
+for my $infile (@logo_files_in) {
+
+    print STDERR "Processing $infile\n" if $verbose;
+    
+    #-----------------------------+
+    # Get the root name of the    |
+    # file to draw                |
+    #-----------------------------+
+    my $name_root;
+    if ($infile =~ m/(.*)\.text$/) {
+	# file ends in .masked.fasta
+	$name_root = "$1";
+    }
+    elsif ($infile =~ m/(.*)\.txt$/ ) {	    
+	# file ends in .fasta
+	$name_root = "$1";
+    }  
+    else {
+	$name_root = $infile;
+    }
+
+    my $outfile = $outdir.$name_root;
+    my $infile_path = $indir.$infile;
+
+    my $seqlogo_cmd = "$seqlogo_bin".
+	" -f $infile_path".
+	" -o $outfile".
+	" -t \"$seqlogo_title\"". # quotes allow for spaces in title name
+	" -s \"$seqlogo_start\"".
+	" -w $seqlogo_width".
+	" -h $seqlogo_height".
+	" -F PNG -c -b -a -n".
+	" -Y -k 1";
+
+   # k is kind of data 1 for DNA
+   # a is to draw antialias
+   # n is to toggle numbering of x-axis
+    
+    if ($x_axis_label) {
+	$seqlogo_cmd = $seqlogo_cmd." -x "." \"$x_axis_label\"";
+    }
+    
+    
+    # This will graphically show all bases, not just significant bases
+    if ($show_all) {
+	$seqlogo_cmd = $seqlogo_cmd." -S";
+    }
+    
+    system($seqlogo_cmd);
+    
+    
+}
+
+
 
 
 # ALSO NOTE THAT SEQ LOGO WILL ACCEPT STDIN 
@@ -255,7 +353,7 @@ James C. Estill E<lt>JamesEstill at gmail.comE<gt>
 
 STARTED: 05/08/2009
 
-UPDATED: 05/08/2009
+UPDATED: 05/29/2009
 
 VERSION: $Rev$
 
