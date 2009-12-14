@@ -54,6 +54,8 @@ my $show_usage = 0;
 my $show_man = 0;
 my $show_version = 0;
 
+my $do_best = 0;               # just return the best blast hit
+
 #-----------------------------+
 # COMMAND LINE OPTIONS        |
 #-----------------------------+
@@ -61,6 +63,7 @@ my $ok = GetOptions(# REQUIRED OPTIONS
 		    "i|infile=s"  => \$infile,
                     "o|outfile=s" => \$outfile,
 		    # ADDITIONAL OPTIONS
+		    "best"        => \$do_best,
 		    "header=s"    => \$na_header,
 		    "q|quiet"     => \$quiet,
 		    "verbose"     => \$verbose,
@@ -125,8 +128,10 @@ while (<INFILE>) {
 	$e_val, $bit_score) = split(/\t/);
     
     # First check if this is a duplicate hit
+    #print STDERR $prev_qry." - ".$qry_id."\n";
     next if $prev_qry =~ $qry_id;
-
+    
+    #print STDERR "\tprinting\n";
     # Set the prev_qry id for the next line
     $prev_qry = $qry_id;
 
@@ -139,6 +144,21 @@ while (<INFILE>) {
     
     print STDERR "Processing $qry_num_id\t$sub_id\n" if $verbose;
     print NAOUT $qry_num_id."=".$sub_id."\n";
+
+#    # If just doing the best (ie first blast hit)
+#    # chieck to see if we have already printed
+#    if ($do_best) {
+#	unless ($prev_num_id == $qry_num_id) {
+#	    print STDERR "Processing $qry_num_id\t$sub_id\n" if $verbose;
+#	    print NAOUT $qry_num_id."=".$sub_id."\n";
+#	}
+#    }
+#    else {
+#	print STDERR "Processing $qry_num_id\t$sub_id\n" if $verbose;
+#	print NAOUT $qry_num_id."=".$sub_id."\n";
+#    }
+#
+#    $prev_num_id = $qry_num_id;
 
 }
 
