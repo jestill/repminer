@@ -131,7 +131,8 @@ while (<TXTIN>) {
     $line_num++;
 
     print STDERR "Processing $line_num" if $verbose;
-    my @in_cols = split;
+    #my @in_cols = split;
+    my @in_cols = split (/\t/, $_);
     my $num_in_cols = @in_cols;
     
     for (my $i = 0; $i<$num_in_cols; $i++ ) {
