@@ -95,8 +95,7 @@ else {
 # PROCESS SEQUENCE FILE       |
 #-----------------------------+
 my $seq_count = 0;
-while (my $seq = $inseq->next_seq) 
-{
+while (my $seq = $inseq->next_seq) {
     $seq_count++;
 
     my @id_split = split (/\|/ ,$seq->primary_id());
@@ -128,16 +127,29 @@ while (my $seq = $inseq->next_seq)
 	$ltr_struc_id = $id_split[0];
     }
 
+    
+    print STDERR "Processing: ". $seq_count." : ".$id_split[3]."\n";
 
-    print STDERR "Processing: $ltr_struc_id\n";
+#    print TABOUT "$ltr_struc_id\t".
+#	$id_split[3]."\t".
+#	$id_split[1]."\t".
+#	$id_split[4]."\t".
+#	$seq->length()."\t".
+#	#$seq->seq()."\t".
+#	$md5."\n";
 
-    print TABOUT "$ltr_struc_id\t".
+    my @src_info = split(/\./, $id_split[3]);
+    my $src_version = $src_info[1];
+
+    # PRINT TAB DELIM OUTPUT OF NCBI SEQS
+    print TABOUT "gi\t".
 	$id_split[1]."\t".
-	$seq->seq()."\t".
-	$md5."\n";
- 
+	"gb\t".
+	$src_version."\t".
+	$id_split[3]."\t".       
+	$seq->desc()."\t".
+	$seq->seq()."\n";
 
-   
 #    print TABOUT $id_split[0]."\t".
 #	$id_split[1]."\t".
 #	$seq->seq()."\t".
@@ -159,3 +171,5 @@ exit 0;
 #-----------------------------------------------------------+
 # 07/24/2008
 # - Program started
+# 05/20/2009
+# - Added sequence length
