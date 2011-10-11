@@ -15,7 +15,7 @@
 # and report sequences that are outside of expected parameters.          |
 #                                                                        |
 # USAGE:                                                                 |
-# seqcheck.pl /home/jestill/BigFastaFile.fasta fasta                     |
+# seq_clean.pl /home/jestill/BigFastaFile.fasta fasta                     |
 #------------------------------------------------------------------------+
 
 # -------------------------
@@ -27,7 +27,7 @@ use Cwd;                   # Use the Cwd module to get the current working direc
 # --------------------------
 # VARIABLES
 # --------------------------
-my $MinLength = "10";       # Minimum seqence length to report
+my $MinLength = "100";       # Minimum seqence length to report
 
 
 # --------------------------
