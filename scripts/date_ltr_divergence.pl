@@ -66,7 +66,7 @@ my $show_man;
 my $show_help;
 
 # Substitution rates to use to estimate date of divergence
-my @sub_rates = (0.000000013,     # Grass rate 
+my @sub_rates = (0.000000013,     # Grass rate (Ma and Bennetzen, 2008)
 		 0.0000000065);   # Half the grass rate               
 
                                # Previously used divergence dates ...
@@ -138,10 +138,12 @@ open (DISTOUT, ">".$distout) ||
 #
 # 
 if ($tabin) {
+    print STDERR "Generating fasta files\n";
+
     # Create the input dir that will hold the fasta files
     unless (-e $indir) {
 	print "Creating input dir to hold fasta files ...\n" if $verbose;
-	mkdir $outdir ||
+	mkdir $indir ||
 	    die "ERROR: Could not create the input directory:\n$indir";
     }
 
@@ -160,7 +162,7 @@ if ($tabin) {
 	if ($num_tab_parts == 3) {
 	    
 	    my $fasta_file = $tab_parts[0].".fasta";
-	    my $fasta_file_path = $indir.$fasta_file
+	    my $fasta_file_path = $indir.$fasta_file;
 	    my $ltr5_name = $tab_parts[0]."_5";
 	    my $ltr3_name = $tab_parts[0]."_3";
 	    
