@@ -412,7 +412,8 @@ for my $ind_file (@ltr_files) {
 		    # Do the math for each substitution rate
 		    for my $ind_rate (@sub_rates) {
 			# Do division and convert to an integer
-			my $div_time = int( ( $distance / 2 * $ind_rate ) );
+			my $div_time = int( ( $distance / (2 * $ind_rate) ) );
+			
 			print DISTOUT $div_time."\t";
 		    }
 
