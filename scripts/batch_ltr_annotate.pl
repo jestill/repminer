@@ -11,12 +11,14 @@
 # UPDATED: 04/07/2008                                       |
 #                                                           |
 # DESCRIPTION:                                              |
-#  Given a direcotry of fasta sequences this will use BLAST |
+#  Given a direcotry of fasta sequences representing full   |
+#  length copies of LTR retrotransposons, this will         |
+#  annotate the biological regions of the LTR retro.        |
 #  to annotate LTR retrotransposons. Results are stored     |
-#  in a table or database.
+#  in a table or database.                                  |
 #                                                           |
 # USAGE:                                                    |
-#  ShortFasta Infile.fasta Outfile.fasta                    |
+#  batch_ltr_annotate.pl 
 #                                                           |
 # VERSION: $Rev$                                            |
 #                                                           |
@@ -34,7 +36,6 @@ package REPMINER;
 use strict;
 use Bio::SeqIO;                # Input/Output for sequence files
 use Getopt::Long;
-#use lib "$ENV{HOME}/src/bioperl";
 use Bio::Seq;
 use Bio::Tools::Run::StandAloneBlast;
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
@@ -178,7 +179,8 @@ print STDERR "NUMBER OF FILES TO PROCESS: $count_files\n" if $verbose;
 #-----------------------------+
 # BLAST DATABASES             |
 #-----------------------------+
-# The following databases for annotation of poaceae domains
+# The following will need to be changed to a config file that uses
+
 my @blast_dbs = ("/db/jlblab/pfam/gag_poaceae",
 		 "/db/jlblab/pfam/zf_cchc_poaceae",
 		 "/db/jlblab/pfam/rvp_all_poa",
@@ -272,7 +274,6 @@ for my $ind_file (@fasta_files)
 	# Print seq_id to the summary file
 	print FEATSUM $inseq->primary_id()."\t";
 	print FEATSUM $inseq->length()."\t";
-
 
         #-----------------------------+
         # PROCESS THE FEATURES FOR    |
