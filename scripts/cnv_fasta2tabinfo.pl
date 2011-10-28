@@ -143,7 +143,7 @@ while (my $seq = $inseq->next_seq) {
     print TABOUT $id_split[0]."\t".
 	$id_split[1]."\t".
 	$seq->length()."\t".
-	$md5.
+	$md5."\t".
 	$seq->seq()."\t".
 	"\n";
 
