@@ -7,7 +7,7 @@
 #  AUTHOR: James C. Estill                                  |
 # CONTACT: jestill_at_sourceforge.net                       |
 # STARTED: 07/24/2008                                       |
-# UPDATED: 07/24/2008                                       |
+# UPDATED: 10/28/2011                                       |
 #                                                           |
 # DESCRIPTION:                                              |
 #  Given a RepMiner formatted FASTA file converts the       |
@@ -113,42 +113,51 @@ while (my $seq = $inseq->next_seq) {
     # ltr struc output is difficult to parse to to the
     # switch of delimiters, sometimes they are present
     # and sometimes they are not.
-    my @split_ltr_id = split(/\_/, $id_split[0]);
+#    my @split_id = split(/\_/, $id_split[0]);
 
 #    my $len_split_ltr_id = @split_ltr_id;
 #    print STDERR "$len_split_ltr_id\n";
 #    print "\t".$id_split[0]."\n";
     
-    my $ltr_struc_id = "NULL";
-    if ($id_split[0] =~ m/(.*)_rprt.txt_(.*)/) {
-	#print STDERR $1."\n";
-	$ltr_struc_id = $1;
-    } else {
-	$ltr_struc_id = $id_split[0];
-    }
+#    my $ltr_struc_id = "NULL";
+#    if ($id_split[0] =~ m/(.*)_rprt.txt_(.*)/) {
+#	#print STDERR $1."\n";
+#	$ltr_struc_id = $1;
+#    } else {
+#	$ltr_struc_id = $id_split[0];
+#    }
 
     
-    print STDERR "Processing: ". $seq_count." : ".$id_split[3]."\n";
+#    print STDERR "Processing: ". $seq_count." : ".$id_split[3]."\n";
 
 #    print TABOUT "$ltr_struc_id\t".
 #	$id_split[3]."\t".
 #	$id_split[1]."\t".
 #	$id_split[4]."\t".
 #	$seq->length()."\t".
-#	#$seq->seq()."\t".
+#	$seq->seq()."\t".
 #	$md5."\n";
 
-    my @src_info = split(/\./, $id_split[3]);
-    my $src_version = $src_info[1];
-
-    # PRINT TAB DELIM OUTPUT OF NCBI SEQS
-    print TABOUT "gi\t".
+    # Modified to the following as a kludge 10/28/2011
+    # mut need to iterate across idsplit
+    print TABOUT $id_split[0]."\t".
 	$id_split[1]."\t".
-	"gb\t".
-	$src_version."\t".
-	$id_split[3]."\t".       
-	$seq->desc()."\t".
-	$seq->seq()."\n";
+	$seq->length()."\t".
+	$md5.
+	$seq->seq()."\t".
+	"\n";
+
+#    my @src_info = split(/\./, $id_split[3]);
+#    my $src_version = $src_info[1];
+
+#    # PRINT TAB DELIM OUTPUT OF NCBI SEQS
+#    print TABOUT "gi\t".
+#	$id_split[1]."\t".
+#	"gb\t".
+#	$src_version."\t".
+#	$id_split[3]."\t".       
+#	$seq->desc()."\t".
+#	$seq->seq()."\n";
 
 #    print TABOUT $id_split[0]."\t".
 #	$id_split[1]."\t".
