@@ -1,50 +1,42 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# date_ltrs.pl - Estimate divergence times of LTRs          |
+# date_ltr_divergence.pl - Estimate LTR divergence times    |
 #                                                           |
 #-----------------------------------------------------------+
 #                                                           |
 #  AUTHOR: James C. Estill, Gina Baucom                     |
 # CONTACT: JamesEstill_@_gmail.com                          |
 # STARTED: 10/11/2011                                       |
-# UPDATED: 10/11/2011                                       |
+# UPDATED: 01/24/2012                                       |
 #                                                           |
 # DESCRIPTION:                                              |
-# Pipeline code to get dates for LTR retros based on code   |
-# originally written by Gina Baucom.                        |
+# Pipeline code to estimate dates for LTR retros insertion  |
+# based on code originally written by Gina Baucom. Accepts  |
+# an array of substitution rates to consider in the         |
+# analysis.                                                 |
 #                                                           |
 #-----------------------------------------------------------+
 
 package REPMINER;
 
 # TO DO:
-# accept list of conversions to use for converting
-# from the distance to an estimated date since
-# divergence.
-
-# REQUIRED SOFTWARE
-# clustalw
-# - required for alignment
-# baseml
-# - part ofthe paml package
-
-# Limitations
-# There are limiations on the fasta file header sizes that the 
-# programs used in the pipeline can make use of.
-# If intput fasta files contain more than one sequence
-# this will give results only for the first two sequences
-# in the fasta file, and assume that these are the two
-# LTRs
-# Requires input as FASTA file with short headers
-# should modfy thise to accept a tab delimited
-# text file for input
+# * Test input fasta file for header lenght etc. for compatibility
+#   with software used in the pipeline before attempting to 
+#   use the pipeline.
 
 #-----------------------------+
 # INCLUDES                    |
 #-----------------------------+
 use strict;
 use Getopt::Long;
+# The following needed for printing help
+use Pod::Select;               # Print subsections of POD documentation
+use Pod::Text;                 # Print POD doc as formatted text file
+use IO::Scalar;                # For print_help subfunction
+use IO::Pipe;                  # Pipe for STDIN, STDOUT for POD docs
+use File::Spec;                # Convert a relative path to an abosolute path
+
 
 #-----------------------------+
 # PROGRAM VARIABLES           |
@@ -87,18 +79,44 @@ my @sub_rates = (0.000000013,     # Grass rate (Ma and Bennetzen, 2008)
 # COMMAND LINE OPTIONS        |
 #-----------------------------+
 my $ok = GetOptions(# REQUIRED OPTIONS
-		    "t|tabin=s"    => \$tabin,
-		    "i|indir=s"    => \$indir,
-                    "o|outdir=s"   => \$outdir,
-		    "d|distout=s", => \$distout,
+		    "t|tabin=s"      => \$tabin,
+		    "i|indir=s"      => \$indir,
+                    "o|outdir=s"     => \$outdir,
+		    "d|distout=s"    => \$distout,
 		    # ADDITIONAL OPTIONS
-		    "verbose"      => \$verbose,
+		    "r|rate|rates=s" => \@sub_rates,
+		    "verbose"        => \$verbose,
                      # ADDITIONAL INFORMATION
-		    "usage"        => \$show_usage,
-		    "version"      => \$show_version,
-		    "man"          => \$show_man,
-		    "h|help"       => \$show_help,);
+		    "usage"          => \$show_usage,
+		    "version"        => \$show_version,
+		    "man"            => \$show_man,
+		    "h|help"         => \$show_help,);
 
+
+#-----------------------------+
+# PRINT REQUESTED HELP        |
+#-----------------------------+
+if ( ($show_usage) ) {
+#    print_help ("usage", File::Spec->rel2abs($0) );
+    print_help ("usage", $0 );
+}
+
+if ( ($show_help) || (!$ok) ) {
+#    print_help ("help",  File::Spec->rel2abs($0) );
+    print_help ("help",  $0 );
+}
+
+if ($show_man) {
+    # User perldoc to generate the man documentation.
+    system ("perldoc $0");
+    exit($ok ? 0 : 2);
+}
+
+if ($show_version) {
+    print "\nbatch_mask.pl:\n".
+	"Version: $VERSION\n\n";
+    exit;
+}
 
 #-----------------------------+
 # CHECK FOR SLASH IN DIR      |
@@ -434,4 +452,245 @@ for my $ind_file (@ltr_files) {
 close (DISTOUT);
 
 exit;
+
+
+
+#-----------------------------------------------------------+ 
+# SUBFUNCTIONS                                              |
+#-----------------------------------------------------------+
+
+sub print_help {
+    my ($help_msg, $podfile) =  @_;
+    # help_msg is the type of help msg to use (ie. help vs. usage)
+    
+    print "\n";
+    
+    #-----------------------------+
+    # PIPE WITHIN PERL            |
+    #-----------------------------+
+    # This code made possible by:
+    # http://www.perlmonks.org/index.pl?node_id=76409
+    # Tie info developed on:
+    # http://www.perlmonks.org/index.pl?node=perltie 
+    #
+    #my $podfile = $0;
+    my $scalar = '';
+    tie *STDOUT, 'IO::Scalar', \$scalar;
+    
+    if ($help_msg =~ "usage") {
+	podselect({-sections => ["SYNOPSIS|MORE"]}, $0);
+    }
+    else {
+	podselect({-sections => ["SYNOPSIS|ARGUMENTS|OPTIONS|MORE"]}, $0);
+    }
+
+    untie *STDOUT;
+    # now $scalar contains the pod from $podfile you can see this below
+    #print $scalar;
+
+    my $pipe = IO::Pipe->new()
+	or die "failed to create pipe: $!";
+    
+    my ($pid,$fd);
+
+    if ( $pid = fork() ) { #parent
+	open(TMPSTDIN, "<&STDIN")
+	    or die "failed to dup stdin to tmp: $!";
+	$pipe->reader();
+	$fd = $pipe->fileno;
+	open(STDIN, "<&=$fd")
+	    or die "failed to dup \$fd to STDIN: $!";
+	my $pod_txt = Pod::Text->new (sentence => 0, width => 78);
+	$pod_txt->parse_from_filehandle;
+	# END AT WORK HERE
+	open(STDIN, "<&TMPSTDIN")
+	    or die "failed to restore dup'ed stdin: $!";
+    }
+    else { #child
+	$pipe->writer();
+	$pipe->print($scalar);
+	$pipe->close();	
+	exit 0;
+    }
+    
+    $pipe->close();
+    close TMPSTDIN;
+
+    print "\n";
+
+    exit 0;
+   
+}
+
+1;
+__END__
+
+
+=head1 NAME
+
+date_ltr_divergence.pl - Estimate LTR divergence times
+
+=head1 VERSION
+
+This documentation refers to program version 0.1
+
+=head1 SYNOPSIS
+
+=head2 Usage
+
+    date_ltr_divergence.pl -t tab_in.txt -i indir.txt 
+                           -o outdir.txt -d dist_out.txt
+
+=head2 Required Arguments
+
+    --indir         # Path to the input directory of fasta files
+    --tabin         # Path to the input tab delim text file
+    --outdir        # Path to the output dir
+    --distout       # Path to the distance output file
+
+=head1 DESCRIPTION
+
+Pipeline code to estimate dates for LTR retros insertion
+based on code originally written by Gina Baucom. Accepts
+an array of substitution rates to consider in the
+analysis.
+
+=head1 REQUIRED ARGUMENTS
+
+=over 2
+
+=item -t, --tabin
+
+Path of the input file.
+
+=item -i, --indir
+
+Path of the input dir.
+
+=item -o,--outdir
+
+Path of the output dir
+
+=item -d,--distout
+
+Path to the output file
+
+=back
+
+=head1 OPTIONS
+
+=over 2
+
+=item -r,--rate
+
+Rate or list of substitution rates to use in estimating time since insertion.
+This must be listed as a float (ie 0.000000013) , and scientific notation
+is not accepted.
+
+=item --usage
+
+Short overview of how to use program from command line.
+
+=item --help
+
+Show program usage with summary of options.
+
+=item --version
+
+Show program version.
+
+=item --man
+
+Show the full program manual. This uses the perldoc command to print the 
+POD documentation for the program.
+
+=item -q,--quiet
+
+Run the program with minimal output.
+
+=back
+
+=head1 EXAMPLES
+
+The following are examples of how to use this script
+
+=head2 Typical Use
+
+This is a typcial use case.
+
+=head1 DIAGNOSTICS
+
+=over 2
+
+=item * Expecting input from STDIN
+
+If you see this message, it may indicate that you did not properly specify
+the input sequence with -i or --infile flag. 
+
+=back
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+This program does not currently make use of a configuraiton file 
+or variables set in the user environment.
+
+=head1 DEPENDENCIES
+
+=head2 Software
+
+=over
+
+=item clustalw
+
+Required for alignment.
+
+=item baseml
+
+This is part of the PAML package.
+
+=back
+
+=head1 BUGS AND LIMITATIONS
+
+=head2 Bugs
+
+Currently report bugs to James Estill.
+
+=head2 Limitations
+
+There are limiations on the fasta file header sizes that the 
+programs used in the pipeline can make use of.
+If intput fasta files contain more than one sequence
+this will give results only for the first two sequences
+in the fasta file, and assume that these are the two
+LTRs
+
+=head1 REFERENCE
+
+A manuscript is in prepartion describing the use of RepMiner.
+
+=head1 LICENSE
+
+GNU General Public License, Version 3
+
+L<http://www.gnu.org/licenses/gpl.html>
+
+=head1 AUTHOR
+
+James C. Estill E<lt>JamesEstill at gmail.comE<gt>
+
+=head1 HISTORY
+
+STARTED: 10/11/2011
+
+UPDATED: 01/24/2012
+
+VERSION: $Rev$
+
+=cut
+
+#-----------------------------------------------------------+
+# HISTORY                                                   |
+#-----------------------------------------------------------+
+#
 
