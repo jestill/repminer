@@ -107,62 +107,25 @@ while (my $seq = $inseq->next_seq) {
     }
     
 
-    # TEMP MODIFICATION TO GET THE LTR_STRUC ID I AM USING
-
-
-    # ltr struc output is difficult to parse to to the
-    # switch of delimiters, sometimes they are present
-    # and sometimes they are not.
-#    my @split_id = split(/\_/, $id_split[0]);
-
-#    my $len_split_ltr_id = @split_ltr_id;
-#    print STDERR "$len_split_ltr_id\n";
-#    print "\t".$id_split[0]."\n";
+    # The following will iterate across idsplit if there
+    # is more than one feature in the split list
+    # otherwise will keep the primary ID as the seq_info
+    my $seq_header_info;
+    my $num_id_parts = @id_split;
     
-#    my $ltr_struc_id = "NULL";
-#    if ($id_split[0] =~ m/(.*)_rprt.txt_(.*)/) {
-#	#print STDERR $1."\n";
-#	$ltr_struc_id = $1;
-#    } else {
-#	$ltr_struc_id = $id_split[0];
-#    }
+    if ($num_id_parts < 2 ) {
+	$seq_header_info = $seq->primary_id();
+    } else {
+	foreach my $id_part(@id_split) {
+	    $seq_header_info = $seq_header_info.$id_part."\t";
+	}
+    }
 
-    
-#    print STDERR "Processing: ". $seq_count." : ".$id_split[3]."\n";
-
-#    print TABOUT "$ltr_struc_id\t".
-#	$id_split[3]."\t".
-#	$id_split[1]."\t".
-#	$id_split[4]."\t".
-#	$seq->length()."\t".
-#	$seq->seq()."\t".
-#	$md5."\n";
-
-    # Modified to the following as a kludge 10/28/2011
-    # mut need to iterate across idsplit
-    print TABOUT $id_split[0]."\t".
-	$id_split[1]."\t".
+    print TABOUT $seq_header_info.
 	$seq->length()."\t".
 	$md5."\t".
 	$seq->seq()."\t".
 	"\n";
-
-#    my @src_info = split(/\./, $id_split[3]);
-#    my $src_version = $src_info[1];
-
-#    # PRINT TAB DELIM OUTPUT OF NCBI SEQS
-#    print TABOUT "gi\t".
-#	$id_split[1]."\t".
-#	"gb\t".
-#	$src_version."\t".
-#	$id_split[3]."\t".       
-#	$seq->desc()."\t".
-#	$seq->seq()."\n";
-
-#    print TABOUT $id_split[0]."\t".
-#	$id_split[1]."\t".
-#	$seq->seq()."\t".
-#	$md5."\n";
 
 
 } # End of while $seq input loop
