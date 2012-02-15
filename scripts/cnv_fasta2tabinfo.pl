@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #-----------------------------------------------------------+
 #                                                           |
-# cnv_fasta2md5sum.pl - Convert fasta to text file for db   |
+# cnv_fasta2tablinfo.pl - Convert fasta to text file for db |
 #                                                           |
 #-----------------------------------------------------------+
 #  AUTHOR: James C. Estill                                  |
@@ -110,7 +110,7 @@ while (my $seq = $inseq->next_seq) {
     # The following will iterate across idsplit if there
     # is more than one feature in the split list
     # otherwise will keep the primary ID as the seq_info
-    my $seq_header_info;
+    my $seq_header_info = "";
     my $num_id_parts = @id_split;
     
     if ($num_id_parts < 2 ) {
